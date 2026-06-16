@@ -1,4 +1,5 @@
-import { Info, X } from "lucide-react";
+import { ArrowUpRight, Info, X } from "lucide-react";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -11,6 +12,7 @@ import {
 } from "@/components/ui/sheet";
 import { Slider } from "@/components/ui/slider";
 import { Avatar } from "@/components/social/Avatar";
+import { profilePath } from "@/components/profile/profile-data";
 import { COPY_BALANCE } from "@/lib/mock";
 import type { CopyMode, Trader, TraderDrawerMode } from "@/lib/mock";
 
@@ -79,6 +81,14 @@ export function TraderDrawer({
             </div>
           ))}
         </div>
+
+        <Link
+          to={profilePath(trader.name)}
+          onClick={onClose}
+          className="flex items-center justify-center gap-1 border-b border-gray-200 py-2.5 text-sm font-medium text-blue-600 hover:text-blue-700 shrink-0"
+        >
+          View full profile <ArrowUpRight className="w-3.5 h-3.5" />
+        </Link>
 
         <div className="flex gap-1 p-3 shrink-0">
           {(["overview", "copy"] as TraderDrawerMode[]).map((m) => (

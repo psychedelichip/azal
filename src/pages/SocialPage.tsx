@@ -1,8 +1,10 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { Copy, Flame, Heart, MessageSquare, Radio, Repeat, Search, Share2, Sparkles, TrendingUp } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar } from "@/components/social/Avatar";
+import { profilePath } from "@/components/profile/profile-data";
 import { useShellContext } from "@/lib/shell-context";
 import { FEED, FEED_TABS, FRIENDS, LIVE_STREAMS, TRADERS, WHO_TO_COPY, findTrader } from "@/lib/mock";
 import type { FeedPost, HoldingSide, Trader } from "@/lib/mock";
@@ -50,13 +52,13 @@ export function SocialPage() {
 
   const traderHeader = (tr: Trader) => (
     <div className="flex items-center gap-3">
-      <button onClick={() => onOpenTrader(tr.id, "overview")} className="flex items-center gap-2.5 min-w-0">
+      <Link to={profilePath(tr.name)} className="flex items-center gap-2.5 min-w-0 hover:opacity-80">
         <Avatar name={tr.name} hue={tr.hue} size={38} />
         <div className="min-w-0 text-left">
           <div className="text-sm font-semibold text-gray-900 truncate">{tr.name}</div>
           <div className="text-xs text-gray-400">{tr.monthly} this month · {tr.win} win</div>
         </div>
-      </button>
+      </Link>
       <div className="flex-1" />
       {followBtn(tr.id)}
       {copyBtn(tr.id)}
@@ -119,13 +121,13 @@ export function SocialPage() {
         if (!tr) return null;
         return (
           <div className="flex items-center gap-3">
-            <button onClick={() => onOpenTrader(tr.id, "overview")} className="flex items-center gap-2.5 min-w-0">
+            <Link to={profilePath(tr.name)} className="flex items-center gap-2.5 min-w-0 hover:opacity-80">
               <Avatar name={tr.name} hue={tr.hue} size={40} />
               <div className="min-w-0 text-left">
                 <div className="text-sm font-semibold text-gray-900 truncate">{tr.name}</div>
                 <div className="text-xs text-gray-400">{tr.win} win · risk {tr.risk}/7 · {tr.roi} ROI</div>
               </div>
-            </button>
+            </Link>
             <div className="flex-1" />
             {followBtn(tr.id)}
             {copyBtn(tr.id)}
@@ -208,7 +210,7 @@ export function SocialPage() {
           <div>
             <div className="border border-gray-200 rounded-xl p-3.5 mb-4">
               <div className="flex items-center gap-3">
-                <Avatar name="John Doe" hue={220} size={36} />
+                <Link to="/profile/me" className="shrink-0 hover:opacity-80"><Avatar name="John Doe" hue={220} size={36} /></Link>
                 <input placeholder="Share a trade or a take..." className="flex-1 min-w-0 text-sm text-gray-700 bg-transparent outline-none placeholder:text-gray-400" />
                 <button className="text-xs font-medium text-white rounded-md px-3 py-1.5 shrink-0" style={{ background: "#0b1220" }}>Share trade</button>
               </div>
@@ -246,10 +248,10 @@ export function SocialPage() {
                   return (
                     <div key={id}>
                       <div className="flex items-center gap-2.5">
-                        <button onClick={() => onOpenTrader(id, "overview")} className="flex items-center gap-2 min-w-0 flex-1">
+                        <Link to={profilePath(t.name)} className="flex items-center gap-2 min-w-0 flex-1 hover:opacity-80">
                           <Avatar name={t.name} hue={t.hue} size={30} />
                           <div className="min-w-0 text-left"><div className="text-sm text-gray-900 truncate">{t.name}</div><div className="text-xs text-green-600">{t.roi} ROI</div></div>
-                        </button>
+                        </Link>
                         {copyBtn(id)}
                       </div>
                       <div className="text-xs text-gray-400 mt-1" style={{ marginLeft: 40 }}>{reason}</div>
@@ -268,10 +270,10 @@ export function SocialPage() {
                 {TRADERS.map((t, i) => (
                   <div key={t.id} className="flex items-center gap-2.5">
                     <span className="text-xs text-gray-400 w-3 shrink-0">{i + 1}</span>
-                    <button onClick={() => onOpenTrader(t.id, "overview")} className="flex items-center gap-2 min-w-0 flex-1">
+                    <Link to={profilePath(t.name)} className="flex items-center gap-2 min-w-0 flex-1 hover:opacity-80">
                       <Avatar name={t.name} hue={t.hue} size={26} />
                       <div className="min-w-0 text-left"><div className="text-sm text-gray-900 truncate">{t.name}</div><div className="text-xs text-gray-400">{t.win} win · risk {t.risk}/7</div></div>
-                    </button>
+                    </Link>
                     <span className="text-sm font-medium text-green-600 shrink-0">{t.roi}</span>
                   </div>
                 ))}
@@ -283,8 +285,10 @@ export function SocialPage() {
               <div className="space-y-2">
                 {FRIENDS.map((f, i) => (
                   <div key={f.name} className="flex items-center gap-2.5">
-                    <div className="relative shrink-0"><Avatar name={f.name} hue={(i * 67) % 360} size={28} />{f.online && <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-500 border-2 border-white" />}</div>
-                    <span className="text-sm text-gray-900 flex-1 truncate">{f.name}</span>
+                    <Link to={profilePath(f.name)} className="flex items-center gap-2.5 min-w-0 flex-1 hover:opacity-80">
+                      <div className="relative shrink-0"><Avatar name={f.name} hue={(i * 67) % 360} size={28} />{f.online && <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-500 border-2 border-white" />}</div>
+                      <span className="text-sm text-gray-900 truncate">{f.name}</span>
+                    </Link>
                     <span className="text-xs text-gray-400">{f.online ? "online" : "offline"}</span>
                   </div>
                 ))}
