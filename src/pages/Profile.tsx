@@ -15,6 +15,7 @@ import { TraderListTab } from "@/components/profile/TraderListTab";
 import { CopyingTab } from "@/components/profile/CopyingTab";
 import { getProfile } from "@/components/profile/profile-data";
 import type { CopyRow, RoiRange } from "@/components/profile/profile-data";
+import { useCopyStore } from "@/lib/copy-store";
 
 type ProfileTab = "Posts" | "Trades" | "Positions" | "Performance" | "Following" | "Followers" | "Copying";
 
@@ -22,7 +23,9 @@ export function Profile() {
   const { handle } = useParams();
   const h = handle ?? "me";
   const profile = useMemo(() => getProfile(h), [h]);
-  const { following, copying, onFollow, onOpenTrader } = useShellContext();
+  const { following, onFollow, onOpenTrader } = useShellContext();
+  const copyMap = useCopyStore();
+  const copiedIds = useMemo(() => [...copyMap.keys()], [copyMap]);
   const navigate = useNavigate();
 
   const [tab, setTab] = useState<ProfileTab>("Posts");
@@ -45,25 +48,24 @@ export function Profile() {
     requestAnimationFrame(() => requestAnimationFrame(() => onOpenTrader(id, "copy")));
   };
 
-  const mergedCopying = useMemo<CopyRow[]>(() => {
+  // Copy rows come from the shared copy store, so they stay in sync with the
+  // trader/copy drawer on Social and survive navigation between the two pages.
+  const copyRows = useMemo<CopyRow[]>(() => {
     if (!profile?.isMe) return [];
-    const extra = copying
-      .filter((id) => !profile.copying.some((c) => c.traderId === id))
-      .map((id) => {
-        const t = findTrader(id);
-        return {
-          traderId: id,
-          name: t ? t.name : id,
-          hue: t ? t.hue : 210,
-          allocation: "$12,500",
-          mode: "proportional" as const,
-          pnl: "+$0",
-          up: true,
-          status: "Active" as const,
-        };
-      });
-    return [...profile.copying, ...extra];
-  }, [profile, copying]);
+    return [...copyMap.values()].map((c) => {
+      const t = findTrader(c.traderId);
+      return {
+        traderId: c.traderId,
+        name: t ? t.name : c.traderId,
+        hue: t ? t.hue : 210,
+        allocation: `$${c.allocation.toLocaleString()}`,
+        mode: c.mode,
+        pnl: c.pnl,
+        up: c.up,
+        status: c.status,
+      };
+    });
+  }, [profile, copyMap]);
 
   if (!profile) {
     return (
@@ -83,7 +85,7 @@ export function Profile() {
   const activeTab = tabs.includes(tab) ? tab : "Posts";
 
   const isFollowing = profile.traderId ? following.includes(profile.traderId) : false;
-  const isCopying = profile.traderId ? copying.includes(profile.traderId) : false;
+  const isCopying = profile.traderId ? copyMap.has(profile.traderId) : false;
 
   return (
     <ScrollArea className="flex-1 min-h-0 bg-white">
@@ -125,12 +127,12 @@ export function Profile() {
         {activeTab === "Positions" && <PositionsTab profile={profile} />}
         {activeTab === "Performance" && <PerformanceTab profile={profile} />}
         {activeTab === "Following" && (
-          <TraderListTab traders={profile.followingList} following={following} copying={copying} onFollow={onFollow} onCopy={startCopy} emptyLabel="Not following anyone yet." />
+          <TraderListTab traders={profile.followingList} following={following} copying={copiedIds} onFollow={onFollow} onCopy={startCopy} emptyLabel="Not following anyone yet." />
         )}
         {activeTab === "Followers" && (
-          <TraderListTab traders={profile.followersList} following={following} copying={copying} onFollow={onFollow} onCopy={startCopy} emptyLabel="No followers yet." />
+          <TraderListTab traders={profile.followersList} following={following} copying={copiedIds} onFollow={onFollow} onCopy={startCopy} emptyLabel="No followers yet." />
         )}
-        {activeTab === "Copying" && <CopyingTab rows={mergedCopying} onManage={startCopy} />}
+        {activeTab === "Copying" && <CopyingTab rows={copyRows} onManage={startCopy} />}
 
         <div className="text-xs text-gray-400 mt-6">Past performance does not guarantee future results.</div>
       </div>

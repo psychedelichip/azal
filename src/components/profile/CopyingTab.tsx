@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { LoaderCircle } from "lucide-react";
 import { Avatar } from "@/components/social/Avatar";
 import { profilePath } from "@/components/profile/profile-data";
 import type { CopyRow, CopyStatus } from "@/components/profile/profile-data";
@@ -48,7 +49,11 @@ export function CopyingTab({ rows, onManage }: CopyingTabProps) {
           <span className={`text-sm font-medium ${row.up ? "text-green-600" : "text-red-500"}`}>{row.pnl}</span>
           <span><span className={`text-xs border rounded-full px-2 py-0.5 ${statusClass(row.status)}`}>{row.status}</span></span>
           <span className="text-right">
-            <button onClick={() => onManage(row.traderId)} className="text-xs font-medium rounded-md px-2.5 py-1.5 border border-gray-200 text-gray-700 hover:bg-gray-50">Manage</button>
+            {row.status === "Pending Close" ? (
+              <span className="inline-flex items-center gap-1 text-xs text-gray-400"><LoaderCircle className="w-3 h-3 animate-spin" /> Closing…</span>
+            ) : (
+              <button onClick={() => onManage(row.traderId)} className="text-xs font-medium rounded-md px-2.5 py-1.5 border border-gray-200 text-gray-700 hover:bg-gray-50">Manage</button>
+            )}
           </span>
         </div>
       ))}

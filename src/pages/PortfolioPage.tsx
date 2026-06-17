@@ -1,6 +1,8 @@
-import { ArrowDownToLine, ChevronRight, Link2 } from "lucide-react";
+import { useMemo, useState } from "react";
+import { ArrowDownToLine, ChevronRight, Copy, Link2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { PositionBadge } from "@/components/PositionBadge";
 import { WalletsTab } from "@/components/portfolio/WalletsTab";
 import { ImportedAssetsTab } from "@/components/portfolio/ImportedAssetsTab";
 import { HedgingTab } from "@/components/portfolio/HedgingTab";
@@ -19,6 +21,7 @@ import {
 } from "@/lib/mock";
 import type {
   ExposureSegment,
+  Holding,
   HoldingRisk,
   HoldingStatus,
   StatTrend,
@@ -42,6 +45,127 @@ function statusClass(status: HoldingStatus) {
   if (status === "Active") return "text-green-700 border-green-200 bg-green-50";
   if (status === "Near Resolution") return "text-amber-700 border-amber-200 bg-amber-50";
   return "text-gray-500 border-gray-200 bg-gray-50";
+}
+
+// A holding tagged with where it came from. source = "@handle" if copied, null if self;
+// former marks a self holding kept after a copy was stopped. A real API would put this on
+// the Holding itself — layered locally here so /lib/mock stays untouched.
+interface SourcedHolding extends Holding {
+  source: string | null;
+  former?: string;
+}
+
+const HOLDING_SOURCE: Record<string, { source: string | null; former?: string }> = {
+  "hold-fed-jul": { source: null },
+  "hold-tariff": { source: "@apex_trades" },
+  "hold-ai-capex": { source: "@marketwizard" },
+  "hold-brent": { source: null, former: "@deltaone" },
+};
+
+// Extra copied positions so a trader holds several — exercises the grouping + counts.
+const EXTRA_COPIED: SourcedHolding[] = [
+  { id: "hold-rate-path", side: "YES", name: "Rate path 2026", exposure: "$9,800", risk: "Medium", pnl: "+$1,120", up: true, status: "Active", source: "@apex_trades" },
+  { id: "hold-cpi-soft", side: "NO", name: "CPI under 3%", exposure: "$7,400", risk: "Low", pnl: "+$540", up: true, status: "Active", source: "@apex_trades" },
+];
+
+const SOURCED_HOLDINGS: SourcedHolding[] = [
+  ...HOLDINGS.map((h) => ({ ...h, ...(HOLDING_SOURCE[h.id] ?? { source: null }) })),
+  ...EXTRA_COPIED,
+];
+
+function HoldingRow({ h }: { h: SourcedHolding }) {
+  return (
+    <div className="grid items-center px-4 py-3 border-b border-gray-100 hover:bg-gray-50" style={{ gridTemplateColumns: HOLDINGS_COLS }}>
+      <span className="flex items-center gap-2 min-w-0">
+        <span className="rounded-lg flex items-center justify-center shrink-0" style={{ width: 30, height: 30, background: "#7c3aed" }}>
+          <span className="rounded-full bg-white" style={{ width: 8, height: 8 }} />
+        </span>
+        <span className={`text-xs font-medium rounded px-1.5 py-0.5 border shrink-0 ${h.side === "YES" ? "text-green-700 bg-green-50 border-green-200" : "text-red-700 bg-red-50 border-red-200"}`}>{h.side}</span>
+        <span className="text-sm text-gray-900 truncate min-w-0">{h.name}</span>
+        <PositionBadge source={h.source} former={h.former} />
+      </span>
+      <span className="text-sm text-gray-900">{h.exposure}</span>
+      <span className={`text-sm ${riskClass(h.risk)}`}>{h.risk}</span>
+      <span className={`text-sm font-medium ${h.up ? "text-green-600" : "text-red-500"}`}>{h.pnl}</span>
+      <span><span className={`text-xs border rounded-full px-2 py-0.5 ${statusClass(h.status)}`}>{h.status}</span></span>
+    </div>
+  );
+}
+
+function HoldingsTable() {
+  const selfHoldings = useMemo(() => SOURCED_HOLDINGS.filter((h) => !h.source), []);
+  const groups = useMemo(() => {
+    const handles = [...new Set(SOURCED_HOLDINGS.filter((h) => h.source).map((h) => h.source as string))];
+    return handles.map((handle) => ({ handle, rows: SOURCED_HOLDINGS.filter((h) => h.source === handle) }));
+  }, []);
+
+  // filter: "all" | "self" | "copied" | a trader handle ("@…"). collapsed keyed by handle.
+  const [filter, setFilter] = useState("all");
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const toggle = (handle: string) => setCollapsed((c) => ({ ...c, [handle]: !c[handle] }));
+
+  const chips = [
+    { value: "all", label: "All" },
+    { value: "self", label: "Self" },
+    { value: "copied", label: "Copied" },
+    ...groups.map((g) => ({ value: g.handle, label: g.handle })),
+  ];
+
+  const showSelf = filter === "all" || filter === "self";
+  const visibleGroups =
+    filter === "all" || filter === "copied" ? groups : filter === "self" ? [] : groups.filter((g) => g.handle === filter);
+  const empty = (!showSelf || selfHoldings.length === 0) && visibleGroups.length === 0;
+
+  return (
+    <>
+      <div className="flex items-center gap-1.5 mb-3 overflow-x-auto pb-0.5">
+        {chips.map((c) => (
+          <button
+            key={c.value}
+            onClick={() => setFilter(c.value)}
+            aria-pressed={filter === c.value}
+            className={`text-xs whitespace-nowrap rounded-full border px-2.5 py-1 ${
+              filter === c.value ? "bg-gray-900 text-white border-gray-900" : "border-gray-200 text-gray-600 hover:bg-gray-50"
+            }`}
+          >
+            {c.label}
+          </button>
+        ))}
+      </div>
+      <div className="border border-gray-200 rounded-xl overflow-hidden">
+        <div
+          className="grid items-center px-4 py-2.5 bg-gray-50 border-b border-gray-200 text-xs uppercase tracking-wider text-gray-400"
+          style={{ gridTemplateColumns: HOLDINGS_COLS }}
+        >
+          <span>Position</span>
+          <span>Exposure</span>
+          <span>Risk</span>
+          <span>PNL</span>
+          <span>Status</span>
+        </div>
+        {showSelf && selfHoldings.map((h) => <HoldingRow key={h.id} h={h} />)}
+        {visibleGroups.map((g) => {
+          const isCollapsed = collapsed[g.handle];
+          return (
+            <div key={g.handle}>
+              <button
+                onClick={() => toggle(g.handle)}
+                aria-expanded={!isCollapsed}
+                className="w-full flex items-center gap-1.5 px-4 py-2 bg-gray-50 border-b border-gray-100 text-left hover:bg-gray-100/70"
+              >
+                <ChevronRight className={`w-3.5 h-3.5 text-gray-400 transition-transform ${isCollapsed ? "" : "rotate-90"}`} />
+                <Copy className="w-3.5 h-3.5 text-blue-500" />
+                <span className="text-xs font-medium text-gray-700">Copied from {g.handle}</span>
+                <span className="text-xs text-gray-400">· {g.rows.length} position{g.rows.length === 1 ? "" : "s"}</span>
+              </button>
+              {!isCollapsed && g.rows.map((h) => <HoldingRow key={h.id} h={h} />)}
+            </div>
+          );
+        })}
+        {empty && <div className="px-4 py-6 text-center text-sm text-gray-400">No positions match this filter.</div>}
+      </div>
+    </>
+  );
 }
 
 function SegBar({ segments }: { segments: ExposureSegment[] }) {
@@ -123,37 +247,7 @@ function PortfolioOverview({ onManageImported }: { onManageImported: () => void 
         </div>
 
         <h3 className="text-sm font-semibold text-gray-900 mb-3">Holdings Table</h3>
-        <div className="border border-gray-200 rounded-xl overflow-hidden">
-          <div
-            className="grid items-center px-4 py-2.5 bg-gray-50 border-b border-gray-200 text-xs uppercase tracking-wider text-gray-400"
-            style={{ gridTemplateColumns: HOLDINGS_COLS }}
-          >
-            <span>Position</span>
-            <span>Exposure</span>
-            <span>Risk</span>
-            <span>PNL</span>
-            <span>Status</span>
-          </div>
-          {HOLDINGS.map((h) => (
-            <div
-              key={h.id}
-              className="grid items-center px-4 py-3 border-b border-gray-100 hover:bg-gray-50"
-              style={{ gridTemplateColumns: HOLDINGS_COLS }}
-            >
-              <span className="flex items-center gap-2 min-w-0">
-                <span className="rounded-lg flex items-center justify-center shrink-0" style={{ width: 30, height: 30, background: "#7c3aed" }}>
-                  <span className="rounded-full bg-white" style={{ width: 8, height: 8 }} />
-                </span>
-                <span className={`text-xs font-medium rounded px-1.5 py-0.5 border shrink-0 ${h.side === "YES" ? "text-green-700 bg-green-50 border-green-200" : "text-red-700 bg-red-50 border-red-200"}`}>{h.side}</span>
-                <span className="text-sm text-gray-900 truncate">{h.name}</span>
-              </span>
-              <span className="text-sm text-gray-900">{h.exposure}</span>
-              <span className={`text-sm ${riskClass(h.risk)}`}>{h.risk}</span>
-              <span className={`text-sm font-medium ${h.up ? "text-green-600" : "text-red-500"}`}>{h.pnl}</span>
-              <span><span className={`text-xs border rounded-full px-2 py-0.5 ${statusClass(h.status)}`}>{h.status}</span></span>
-            </div>
-          ))}
-        </div>
+        <HoldingsTable />
       </div>
     </ScrollArea>
   );

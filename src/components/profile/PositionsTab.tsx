@@ -1,5 +1,16 @@
+import { PositionBadge } from "@/components/PositionBadge";
 import type { ProfileData, PositionStatus } from "@/components/profile/profile-data";
 import type { HoldingSide } from "@/lib/mock";
+
+// Mock copy provenance for the current user's own positions (source = handle copied from,
+// null = self, former = kept after stopping a copy). Other traders' profiles show their
+// own trades, so they carry no copy badges. A real API would put this on the position.
+const ME_POSITION_SOURCE: Record<string, { source: string | null; former?: string }> = {
+  "pos-0": { source: null },
+  "pos-1": { source: "@apex_trades" },
+  "pos-2": { source: "@deltaone" },
+  "pos-3": { source: null, former: "@nova_fade" },
+};
 
 const sideChip = (side: HoldingSide) =>
   `text-xs font-medium rounded px-1.5 py-0.5 border ${side === "YES" ? "text-green-700 bg-green-50 border-green-200" : "text-red-700 bg-red-50 border-red-200"}`;
@@ -43,7 +54,9 @@ export function PositionsTab({ profile }: { profile: ProfileData }) {
           <span>P&amp;L</span>
           <span>Status</span>
         </div>
-        {profile.positions.map((p) => (
+        {profile.positions.map((p) => {
+          const prov = profile.isMe ? ME_POSITION_SOURCE[p.id] : undefined;
+          return (
           <div
             key={p.id}
             className="grid items-center px-4 py-3 border-b border-gray-100 last:border-b-0 hover:bg-gray-50"
@@ -51,13 +64,15 @@ export function PositionsTab({ profile }: { profile: ProfileData }) {
           >
             <span className="flex items-center gap-2 min-w-0">
               <span className={sideChip(p.side)}>{p.side}</span>
-              <span className="text-sm text-gray-900 truncate">{p.market}</span>
+              <span className="text-sm text-gray-900 truncate min-w-0">{p.market}</span>
+              {prov && <PositionBadge source={prov.source} former={prov.former} />}
             </span>
             <span className="text-sm text-gray-900">{p.exposure}</span>
             <span className={`text-sm font-medium ${p.up ? "text-green-600" : "text-red-500"}`}>{p.pnl}</span>
             <span><span className={`text-xs border rounded-full px-2 py-0.5 ${statusClass(p.status)}`}>{p.status}</span></span>
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
