@@ -1,4 +1,4 @@
-import { useLocation } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import {
   ArrowDownToLine,
   Bell,
@@ -109,13 +109,13 @@ export function TopBar({ editing, onToggleEdit, portfolioTab, onResetPortfolioTa
             <Pencil className="w-4 h-4" />
           </Button>
         )}
-        <div className="flex items-center gap-1.5 pl-0.5">
+        <Link to="/profile/me" title="View your profile" className="flex items-center gap-1.5 pl-0.5 rounded-md hover:opacity-80">
           <div className="text-right leading-tight">
             <div className="text-sm text-gray-900 font-medium">John Doe</div>
             <div className="text-xs text-gray-400">Tier 1</div>
           </div>
           <div className="w-8 h-8 rounded-full bg-blue-600" />
-        </div>
+        </Link>
         <IconBtn icon={MoreHorizontal} />
       </div>
     </header>
