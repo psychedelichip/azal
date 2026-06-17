@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Copy, Flame, Heart, MessageSquare, Radio, Repeat, Search, Share2, Sparkles, TrendingUp } from "lucide-react";
+import { Copy, Flame, Gem, Heart, MessageSquare, Radio, Repeat, Search, Share2, Sparkles, TrendingUp } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar } from "@/components/social/Avatar";
@@ -11,6 +11,9 @@ import type { FeedPost, HoldingSide, Trader } from "@/lib/mock";
 
 const sideChip = (side: HoldingSide) =>
   `text-xs font-medium rounded px-1.5 py-0.5 border ${side === "YES" ? "text-green-700 bg-green-50 border-green-200" : "text-red-700 bg-red-50 border-red-200"}`;
+
+/** Smart money = vetted traders, ranked by win rate. The "good traders" you copy. */
+const SMART_MONEY = [...TRADERS].sort((a, b) => parseInt(b.win) - parseInt(a.win)).slice(0, 4);
 
 /** The trade/success cards share the like / comment / repost / share engagement bar. */
 type EngagementPost = Extract<FeedPost, { likes: number }>;
@@ -201,6 +204,49 @@ export function SocialPage() {
                 </button>
               );
             })}
+          </div>
+        </div>
+
+        {/* ZONE: Smart money — vetted high-win-rate traders to copy */}
+        <div className="mb-5">
+          <div className="flex items-center justify-between mb-2.5">
+            <div className="flex items-center gap-1.5 text-sm font-semibold text-gray-900">
+              <Gem className="w-4 h-4 text-blue-600" /> Smart money <span className="text-xs font-normal text-gray-400">· Vetted · high win rate</span>
+            </div>
+            <button className="text-xs font-medium text-blue-600 hover:text-blue-700">View all</button>
+          </div>
+          <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))" }}>
+            {SMART_MONEY.map((t) => (
+              <div key={t.id} className="border border-gray-200 rounded-xl p-3.5 hover:border-gray-300">
+                <div className="flex items-center gap-2.5">
+                  <Link to={profilePath(t.name)} className="shrink-0 hover:opacity-80"><Avatar name={t.name} hue={t.hue} size={36} /></Link>
+                  <div className="min-w-0">
+                    <Link to={profilePath(t.name)} className="block text-sm font-semibold text-gray-900 truncate hover:opacity-80">{t.name}</Link>
+                    <div className="text-xs text-gray-400 truncate">{t.tags.join(" · ")}</div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-4 mt-3">
+                  <div>
+                    <div className="text-base font-bold text-gray-900">{t.win}</div>
+                    <div className="text-[11px] text-gray-400">win rate</div>
+                  </div>
+                  <div>
+                    <div className="text-base font-bold text-green-600">{t.roi}</div>
+                    <div className="text-[11px] text-gray-400">ROI</div>
+                  </div>
+                  <div className="ml-auto text-right">
+                    <div className="text-base font-bold text-gray-900">{t.risk}/7</div>
+                    <div className="text-[11px] text-gray-400">risk</div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 mt-3">
+                  {followBtn(t.id)}
+                  <button onClick={() => onOpenTrader(t.id, "copy")} className="flex-1 text-xs font-medium text-white rounded-md px-2.5 py-1.5" style={{ background: "#0b1220" }}>
+                    {copying.includes(t.id) ? "Copying" : "Copy"}
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 

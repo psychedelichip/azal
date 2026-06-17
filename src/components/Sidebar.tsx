@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { ChevronDown, Flame, Gift, LayoutGrid, Settings, Share2 } from "lucide-react";
+import { ChevronDown, Flame, Gift, Globe, LayoutGrid, Settings, Share2 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Sidebar, useSidebar } from "@/components/ui/sidebar";
@@ -113,6 +113,13 @@ export function AppSidebar() {
             <RailIcon icon={LayoutGrid} onClick={() => navigate("/portfolio")} />
             <RailIcon icon={Share2} onClick={() => navigate("/social")} />
             <RailIcon icon={Gift} onClick={() => navigate("/rewards")} />
+            <button
+              disabled
+              title="Worldview · Coming soon"
+              className="w-9 h-9 flex items-center justify-center rounded-md text-gray-300 cursor-not-allowed"
+            >
+              <Globe className="w-4 h-4" />
+            </button>
           </div>
           <div className="mt-auto">
             <RailIcon icon={Settings} />
@@ -158,6 +165,16 @@ export function AppSidebar() {
             <MenuItem icon={LayoutGrid} label="Portfolio" active={pathname === "/portfolio"} onClick={() => navigate("/portfolio")} />
             <MenuItem icon={Share2} label="Social" active={pathname === "/social"} onClick={() => navigate("/social")} />
             <MenuItem icon={Gift} label="Rewards" active={pathname === "/rewards"} onClick={() => navigate("/rewards")} />
+            <button
+              disabled
+              title="Worldview · Coming soon"
+              className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-md text-sm text-gray-400 cursor-not-allowed"
+            >
+              <Globe className="w-4 h-4" /> Worldview
+              <span className="ml-auto text-[10px] font-medium uppercase tracking-wide text-gray-400 bg-gray-100 rounded px-1.5 py-0.5">
+                Soon
+              </span>
+            </button>
           </div>
           <div className="shrink-0 border-t border-gray-100 px-3 py-2.5 flex items-center">
             <button className="p-1.5 rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-700" title="Settings">
