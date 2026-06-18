@@ -1,4 +1,4 @@
-import { ArrowRight, ChevronDown, GripVertical, X } from "lucide-react";
+import { ArrowRight, ChevronDown, GripVertical, LayoutGrid, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { WidgetMini } from "@/components/WidgetMini";
@@ -101,9 +101,10 @@ export function RightRail({ editing, slotWidget, onRemoveWidget }: RightRailProp
             <div className="text-xs text-blue-500 mt-1">Add one from the widget editor</div>
           </div>
         ) : (
-          <div className="mx-4 my-3 rounded-lg border border-dashed border-gray-300 px-4 py-6 text-center">
-            <div className="text-sm text-gray-400">Free slot</div>
-            <div className="text-xs text-gray-300 mt-1">Reserved space, drop a widget here later</div>
+          <div className="mx-4 my-3 rounded-lg border border-dashed border-gray-200 px-4 py-5 flex flex-col items-center text-center">
+            <LayoutGrid className="w-4 h-4 text-gray-300 mb-1.5" />
+            <div className="text-sm text-gray-500">Pin a widget here</div>
+            <div className="text-xs text-gray-400 mt-0.5">Add Markets, Intel, or a chart from the editor</div>
           </div>
         )}
       </ScrollArea>

@@ -47,12 +47,19 @@ export interface FeaturedMarket {
   no: number;
   yesSeries: number[];
   noSeries: number[];
+  /** Links this featured slide to a MARKETS row, so a list click can drive the deep-dive. */
+  marketId?: string;
+  liquidityLabel?: string;
+  resolutionLabel?: string;
+  closesLabel?: string;
 }
 
 export interface IntelItem {
   id: string;
   score: number;
   text: string;
+  /** Links intel to a FeaturedMarket.marketId for the deep-dive "Why this market" panel. */
+  relatedMarketId?: string;
 }
 
 export interface Catalyst {
@@ -61,6 +68,17 @@ export interface Catalyst {
   month: string;
   title: string;
   linkedMarket: string;
+  relatedMarketId?: string;
+}
+
+/** Market-scoped news (the scraped-news concept, done right) for the deep-dive panel. */
+export interface ContextualNews {
+  id: string;
+  marketId: string;
+  source: string;
+  headline: string;
+  timeAgo: string;
+  sentiment?: "up" | "down" | "neutral";
 }
 
 export interface Position {
@@ -125,6 +143,10 @@ export const FEATURED_MARKETS: FeaturedMarket[] = [
     no: 93,
     yesSeries: [12, 10, 14, 9, 11, 8, 10, 9, 7],
     noSeries: [88, 90, 86, 91, 89, 92, 90, 91, 93],
+    marketId: "btc-150k",
+    liquidityLabel: "$210k liq",
+    resolutionLabel: "Jun 30, 2026",
+    closesLabel: "12h 42m",
   },
   {
     id: "feat-fed-cut",
@@ -135,6 +157,10 @@ export const FEATURED_MARKETS: FeaturedMarket[] = [
     no: 62,
     yesSeries: [30, 33, 31, 36, 34, 37, 35, 39, 38],
     noSeries: [70, 67, 69, 64, 66, 63, 65, 61, 62],
+    marketId: "fed-cut-jul",
+    liquidityLabel: "$540k liq",
+    resolutionLabel: "Jul 31, 2026",
+    closesLabel: "21d",
   },
   {
     id: "feat-trump-approval",
@@ -145,19 +171,31 @@ export const FEATURED_MARKETS: FeaturedMarket[] = [
     no: 48,
     yesSeries: [48, 50, 47, 53, 51, 49, 54, 50, 52],
     noSeries: [52, 50, 53, 47, 49, 51, 46, 50, 48],
+    marketId: "trump-approval",
+    liquidityLabel: "$380k liq",
+    resolutionLabel: "Jun 30, 2026",
+    closesLabel: "18d",
   },
 ];
 
 export const INTEL_ITEMS: IntelItem[] = [
-  { id: "intel-btc-headline", score: 92, text: "BTC market reacted +2.4% to Reuters headline" },
-  { id: "intel-eth-catalyst", score: 87, text: "Your ETH position near a resolution catalyst" },
-  { id: "intel-fed-disagreement", score: 74, text: "High disagreement detected on Fed-cut market" },
+  { id: "intel-btc-headline", score: 92, text: "BTC market reacted +2.4% to Reuters headline", relatedMarketId: "btc-150k" },
+  { id: "intel-eth-catalyst", score: 87, text: "Your ETH position near a resolution catalyst", relatedMarketId: "eth-4k" },
+  { id: "intel-fed-disagreement", score: 74, text: "High disagreement detected on Fed-cut market", relatedMarketId: "fed-cut-jul" },
 ];
 
 export const CATALYSTS: Catalyst[] = [
-  { id: "cat-eth-unlock", day: "18", month: "JUN", title: "ETH token unlock", linkedMarket: "ETH above $4k" },
-  { id: "cat-fed-decision", day: "30", month: "JUL", title: "Fed rate decision", linkedMarket: "Fed cuts in July" },
-  { id: "cat-debate", day: "16", month: "SEP", title: "Presidential debate", linkedMarket: "Trump approval" },
+  { id: "cat-eth-unlock", day: "18", month: "JUN", title: "ETH token unlock", linkedMarket: "ETH above $4k", relatedMarketId: "eth-4k" },
+  { id: "cat-fed-decision", day: "30", month: "JUL", title: "Fed rate decision", linkedMarket: "Fed cuts in July", relatedMarketId: "fed-cut-jul" },
+  { id: "cat-debate", day: "16", month: "SEP", title: "Presidential debate", linkedMarket: "Trump approval", relatedMarketId: "trump-approval" },
+];
+
+export const CONTEXTUAL_NEWS: ContextualNews[] = [
+  { id: "news-btc-etf", marketId: "btc-150k", source: "Reuters", headline: "Spot BTC ETFs see $1.2B weekly inflow", timeAgo: "2h ago", sentiment: "up" },
+  { id: "news-btc-onchain", marketId: "btc-150k", source: "Glassnode", headline: "Long-term holder supply hits record high", timeAgo: "5h ago", sentiment: "neutral" },
+  { id: "news-fed-cpi", marketId: "fed-cut-jul", source: "Bloomberg", headline: "Core CPI cools to 3.1%, below consensus", timeAgo: "1h ago", sentiment: "up" },
+  { id: "news-fed-speak", marketId: "fed-cut-jul", source: "WSJ", headline: "Fed official signals caution on July timing", timeAgo: "4h ago", sentiment: "down" },
+  { id: "news-eth-unlock", marketId: "eth-4k", source: "The Block", headline: "ETH unlock cliff adds near-term supply", timeAgo: "8h ago", sentiment: "down" },
 ];
 
 export const POSITIONS: Position[] = [

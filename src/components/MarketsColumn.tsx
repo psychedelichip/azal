@@ -17,7 +17,13 @@ import {
 } from "@/lib/mock";
 import type { MarketFilter, MarketSort, StatusFilter } from "@/lib/mock";
 
-export function MarketsColumn({ editing }: { editing: boolean }) {
+interface MarketsColumnProps {
+  editing: boolean;
+  onSelectMarket?: (marketId: string) => void;
+  selectedMarketId?: string;
+}
+
+export function MarketsColumn({ editing, onSelectMarket, selectedMarketId }: MarketsColumnProps) {
   const [filter, setFilter] = useState<MarketFilter>("Trending");
   const [sort, setSort] = useState<MarketSort>("Trending");
   const [status, setStatus] = useState<StatusFilter>("All");
@@ -145,7 +151,13 @@ export function MarketsColumn({ editing }: { editing: boolean }) {
 
       <ScrollArea className="flex-1 min-h-0">
         {visibleMarkets.map((m) => (
-          <button key={m.id} className="w-full text-left px-4 py-3 border-t border-gray-100 hover:bg-gray-50">
+          <button
+            key={m.id}
+            onClick={() => onSelectMarket?.(m.id)}
+            className={`w-full text-left px-4 py-3 border-t border-gray-100 hover:bg-gray-50 ${
+              m.id === selectedMarketId ? "bg-blue-50 border-l-2 border-l-blue-600" : ""
+            }`}
+          >
             <div className="flex items-start justify-between gap-3">
               <span className="text-sm text-gray-900 font-medium">{m.question}</span>
               <span className="text-sm font-semibold text-gray-900 shrink-0">{m.probability}%</span>
