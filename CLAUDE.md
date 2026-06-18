@@ -91,3 +91,12 @@ Auth, real wallet, live market data, backend, the XP / rewards economy. Prototyp
 - One page per file under src/pages. Shared UI under src/components. Drawers under src/components/drawers.
 - When I ask to change or redesign a single page, only edit that page's file and its local child components. Do not touch the shell, routing, tokens, or other pages unless I explicitly say so.
 - This file is high-level context only. The code is the source of truth, do not expect feature-level detail here.
+
+## Handling feedback screenshots
+When I paste a client/boss feedback screenshot:
+1. I'll name the screen/file it's about. If I don't, ask which file before touching anything.
+2. Restate the underlying request in 1-2 sentences (the intent, not the literal words).
+3. Recommend ONE approach with a short why, and name the 1-2 alternatives you rejected. Never give me a multiple-choice list to pick from — make the call.
+4. Small contained change → just implement it. Touches the data model, layout/IA, or multiple files → show a short plan first and wait for my go.
+5. Stay in the named file(s); don't touch anything else. Reuse existing components, patterns, and tokens. Flag it only if a real rebuild is genuinely needed.
+6. If you must ask, one question max, and include your recommended default.
