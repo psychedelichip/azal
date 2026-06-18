@@ -4,7 +4,25 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { WidgetMini } from "@/components/WidgetMini";
 import { IntelTypeIcon } from "@/components/dashboard/intel-meta";
 import { CATALYSTS, INTEL_ITEMS, POSITIONS, WIDGETS } from "@/lib/mock";
-import type { WidgetKey } from "@/lib/mock";
+import type { Catalyst, WidgetKey } from "@/lib/mock";
+
+const MONTH_ORDER = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+
+/**
+ * Compact preview: at most 2 catalysts. Soonest-first, but any tied to a market the
+ * user holds floats to the top. The full list lives behind the "calendar" link.
+ */
+const CATALYST_PREVIEW: Catalyst[] = (() => {
+  const heldMarketIds = new Set(POSITIONS.map((p) => p.marketId));
+  const dateKey = (c: Catalyst) => MONTH_ORDER.indexOf(c.month) * 100 + Number(c.day);
+  return [...CATALYSTS]
+    .sort((a, b) => {
+      const aHeld = heldMarketIds.has(a.relatedMarketId ?? "") ? 0 : 1;
+      const bHeld = heldMarketIds.has(b.relatedMarketId ?? "") ? 0 : 1;
+      return aHeld - bHeld || dateKey(a) - dateKey(b);
+    })
+    .slice(0, 2);
+})();
 
 interface RightRailProps {
   editing: boolean;
@@ -51,9 +69,11 @@ export function RightRail({ editing, slotWidget, onRemoveWidget, onOpenIntel }: 
             <span className="text-sm font-semibold text-gray-900">Catalysts</span>
             <CountBadge count={CATALYSTS.length} />
           </div>
-          <span className="text-xs text-gray-400">calendar</span>
+          <button type="button" className="flex items-center gap-0.5 text-xs font-medium text-blue-600 hover:text-blue-700">
+            calendar <ArrowRight className="w-3 h-3" />
+          </button>
         </div>
-        {CATALYSTS.map((c) => (
+        {CATALYST_PREVIEW.map((c) => (
           <button key={c.id} className="w-full text-left flex items-center gap-3 px-4 py-2.5 border-t border-gray-100 hover:bg-gray-50">
             <span className="flex flex-col items-center justify-center border border-gray-200 rounded-md shrink-0" style={{ width: 40, height: 40 }}>
               <span className="text-sm font-semibold text-gray-900 leading-none">{c.day}</span>

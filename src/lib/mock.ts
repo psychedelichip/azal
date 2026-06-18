@@ -139,6 +139,8 @@ export interface ContextualNews {
 
 export interface Position {
   id: string;
+  /** Market this position sits in — lets catalysts/intel match against held markets. */
+  marketId: string;
   name: string;
   detail: string;
   pnl: number;
@@ -335,9 +337,9 @@ export const CONTEXTUAL_NEWS: ContextualNews[] = [
 ];
 
 export const POSITIONS: Position[] = [
-  { id: "pos-btc-yes", name: "BTC $150k · Yes", detail: "0.58 → 0.63 · 4,200 sh", pnl: 215 },
-  { id: "pos-eth-no", name: "ETH $4k · No", detail: "0.44 → 0.41 · 1,100 sh", pnl: 48 },
-  { id: "pos-fed-yes", name: "Fed cut Jul · Yes", detail: "0.38 → 0.35 · 600 sh", pnl: -22 },
+  { id: "pos-btc-yes", marketId: "btc-150k", name: "BTC $150k · Yes", detail: "0.58 → 0.63 · 4,200 sh", pnl: 215 },
+  { id: "pos-eth-no", marketId: "eth-4k", name: "ETH $4k · No", detail: "0.44 → 0.41 · 1,100 sh", pnl: 48 },
+  { id: "pos-fed-yes", marketId: "fed-cut-jul", name: "Fed cut Jul · Yes", detail: "0.38 → 0.35 · 600 sh", pnl: -22 },
 ];
 
 export const WIDGETS: Widget[] = [
