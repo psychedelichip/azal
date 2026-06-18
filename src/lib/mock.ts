@@ -12,12 +12,27 @@ export type SectionId = (typeof SECTION_IDS)[number];
 /** "Trending" shows everything; a SectionId narrows the list to that section. */
 export type MarketFilter = "Trending" | SectionId;
 
+export type MarketStatus = "Open" | "Live" | "Closing soon" | "New";
+
+/** Sort applied to the markets list. "Trending" keeps the curated order. */
+export type MarketSort = "Trending" | "Volume" | "Closing soon" | "% chance";
+export const SORT_OPTIONS: MarketSort[] = ["Trending", "Volume", "Closing soon", "% chance"];
+
+/** "All" shows every status; the rest narrow by MarketStatus. */
+export type StatusFilter = "All" | "Open" | "Live" | "Closing soon";
+export const STATUS_OPTIONS: StatusFilter[] = ["All", "Open", "Live", "Closing soon"];
+
 export interface Market {
   id: string;
   question: string;
   probability: number;
   volumeLabel: string;
+  /** Numeric volume for sorting; volumeLabel stays for display. */
+  volume: number;
   timeLabel: string;
+  /** Sortable minutes-to-close; live = 0, no-deadline = large sentinel. */
+  closesInMinutes: number;
+  status: MarketStatus;
   yesPrice: number;
   noPrice: number;
   section: SectionId;
@@ -86,17 +101,18 @@ export const LIVE_MARKETS = [
 
 export const CATEGORY_PILLS: MarketFilter[] = ["Trending", "Crypto", "Politics"];
 
-export const SECTION_OPTIONS = ["All sections", ...SECTION_IDS] as const;
+/** Sections not already shown as a pill — surfaced via the pills "+" overflow. */
+export const MORE_SECTIONS = SECTION_IDS.filter((s) => !CATEGORY_PILLS.includes(s));
 
 export const MARKETS: Market[] = [
-  { id: "btc-150k", question: "Will BTC hit $150k by Jun 30?", probability: 7, volumeLabel: "$544k vol", timeLabel: "12:42:48 left", yesPrice: 7, noPrice: 93, section: "Crypto" },
-  { id: "fed-cut-jul", question: "Fed cuts rates in July?", probability: 38, volumeLabel: "$1.2M vol", timeLabel: "21d left", yesPrice: 38, noPrice: 62, section: "Economics" },
-  { id: "trump-approval", question: "Trump approval > 45% end Q2?", probability: 52, volumeLabel: "$890k vol", timeLabel: "18d left", yesPrice: 52, noPrice: 48, section: "Politics" },
-  { id: "eth-4k", question: "ETH above $4k by Jul 1?", probability: 44, volumeLabel: "$410k vol", timeLabel: "22d left", yesPrice: 44, noPrice: 56, section: "Crypto" },
-  { id: "gov-shutdown", question: "Gov shutdown before October?", probability: 29, volumeLabel: "$320k vol", timeLabel: "open", yesPrice: 29, noPrice: 71, section: "Politics" },
-  { id: "lakers-title", question: "Lakers win NBA title?", probability: 12, volumeLabel: "$760k vol", timeLabel: "live", yesPrice: 12, noPrice: 88, section: "Sports" },
-  { id: "ai-safety-bill", question: "AI safety bill passes Senate?", probability: 18, volumeLabel: "$140k vol", timeLabel: "40d left", yesPrice: 18, noPrice: 82, section: "Politics" },
-  { id: "nyc-rain", question: "Rain in NYC tomorrow?", probability: 71, volumeLabel: "$22k vol", timeLabel: "14h left", yesPrice: 71, noPrice: 29, section: "Weather" },
+  { id: "btc-150k", question: "Will BTC hit $150k by Jun 30?", probability: 7, volumeLabel: "$544k vol", volume: 544000, timeLabel: "12:42:48 left", closesInMinutes: 762, status: "Closing soon", yesPrice: 7, noPrice: 93, section: "Crypto" },
+  { id: "fed-cut-jul", question: "Fed cuts rates in July?", probability: 38, volumeLabel: "$1.2M vol", volume: 1200000, timeLabel: "21d left", closesInMinutes: 30240, status: "Open", yesPrice: 38, noPrice: 62, section: "Economics" },
+  { id: "trump-approval", question: "Trump approval > 45% end Q2?", probability: 52, volumeLabel: "$890k vol", volume: 890000, timeLabel: "18d left", closesInMinutes: 25920, status: "Open", yesPrice: 52, noPrice: 48, section: "Politics" },
+  { id: "eth-4k", question: "ETH above $4k by Jul 1?", probability: 44, volumeLabel: "$410k vol", volume: 410000, timeLabel: "22d left", closesInMinutes: 31680, status: "Open", yesPrice: 44, noPrice: 56, section: "Crypto" },
+  { id: "gov-shutdown", question: "Gov shutdown before October?", probability: 29, volumeLabel: "$320k vol", volume: 320000, timeLabel: "open", closesInMinutes: 999999, status: "Open", yesPrice: 29, noPrice: 71, section: "Politics" },
+  { id: "lakers-title", question: "Lakers win NBA title?", probability: 12, volumeLabel: "$760k vol", volume: 760000, timeLabel: "live", closesInMinutes: 0, status: "Live", yesPrice: 12, noPrice: 88, section: "Sports" },
+  { id: "ai-safety-bill", question: "AI safety bill passes Senate?", probability: 18, volumeLabel: "$140k vol", volume: 140000, timeLabel: "40d left", closesInMinutes: 57600, status: "Open", yesPrice: 18, noPrice: 82, section: "Politics" },
+  { id: "nyc-rain", question: "Rain in NYC tomorrow?", probability: 71, volumeLabel: "$22k vol", volume: 22000, timeLabel: "14h left", closesInMinutes: 840, status: "Closing soon", yesPrice: 71, noPrice: 29, section: "Weather" },
 ];
 
 export const FEATURED_MARKETS: FeaturedMarket[] = [

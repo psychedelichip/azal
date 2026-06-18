@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { ChevronDown, GripVertical, Plus, Settings, Star } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Check, ChevronDown, GripVertical, Plus, Star } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
@@ -8,12 +8,39 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { CATEGORY_PILLS, MARKETS, SECTION_OPTIONS } from "@/lib/mock";
-import type { MarketFilter } from "@/lib/mock";
+import {
+  CATEGORY_PILLS,
+  MARKETS,
+  MORE_SECTIONS,
+  SORT_OPTIONS,
+  STATUS_OPTIONS,
+} from "@/lib/mock";
+import type { MarketFilter, MarketSort, StatusFilter } from "@/lib/mock";
 
 export function MarketsColumn({ editing }: { editing: boolean }) {
   const [filter, setFilter] = useState<MarketFilter>("Trending");
-  const visibleMarkets = filter === "Trending" ? MARKETS : MARKETS.filter((m) => m.section === filter);
+  const [sort, setSort] = useState<MarketSort>("Trending");
+  const [status, setStatus] = useState<StatusFilter>("All");
+
+  const visibleMarkets = useMemo(() => {
+    let list = MARKETS;
+    if (filter !== "Trending") list = list.filter((m) => m.section === filter);
+    if (status !== "All") list = list.filter((m) => m.status === status);
+    if (sort === "Volume") list = [...list].sort((a, b) => b.volume - a.volume);
+    else if (sort === "Closing soon") list = [...list].sort((a, b) => a.closesInMinutes - b.closesInMinutes);
+    else if (sort === "% chance") list = [...list].sort((a, b) => b.probability - a.probability);
+    return list;
+  }, [filter, sort, status]);
+
+  // The active section is shown as a pill even when picked from the "+" overflow.
+  const overflowActive = filter !== "Trending" && !CATEGORY_PILLS.includes(filter);
+  const filtersActive = filter !== "Trending" || sort !== "Trending" || status !== "All";
+
+  const resetFilters = () => {
+    setFilter("Trending");
+    setSort("Trending");
+    setStatus("All");
+  };
 
   return (
     <section className="flex flex-col border-r border-gray-200 bg-white shrink-0" style={{ width: 340 }}>
@@ -40,44 +67,83 @@ export function MarketsColumn({ editing }: { editing: boolean }) {
             {p === "Trending" && <Star className="w-3.5 h-3.5" />} {p}
           </button>
         ))}
-        <button className="text-gray-400 border border-gray-200 rounded-full w-7 h-7 flex items-center justify-center hover:bg-gray-50"><Plus className="w-4 h-4" /></button>
-      </div>
-
-      <div className="flex items-center gap-2 px-4 pb-3">
-        <button className="flex items-center gap-1 text-xs text-gray-600 border border-gray-200 rounded-md px-2 py-1 hover:bg-gray-50">Trending <ChevronDown className="w-3 h-3 text-gray-400" /></button>
-        <button className="flex items-center gap-1 text-xs text-gray-600 border border-gray-200 rounded-md px-2 py-1 hover:bg-gray-50">Open markets <ChevronDown className="w-3 h-3 text-gray-400" /></button>
+        {overflowActive && (
+          <button
+            onClick={() => setFilter("Trending")}
+            className="flex items-center gap-1 text-sm rounded-full px-3 py-1 border bg-gray-900 text-white border-gray-900"
+          >
+            {filter}
+          </button>
+        )}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button
-              className={`flex items-center gap-1 text-xs rounded-md px-2 py-1 border ${
-                filter !== "Trending" ? "border-blue-300 text-blue-700 bg-blue-50" : "border-gray-200 text-gray-600 hover:bg-gray-50"
-              }`}
-            >
-              {filter === "Trending" ? "All sections" : filter} <ChevronDown className="w-3 h-3" />
-            </button>
+            <button className="text-gray-400 border border-gray-200 rounded-full w-7 h-7 flex items-center justify-center hover:bg-gray-50"><Plus className="w-4 h-4" /></button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-40 rounded-lg border border-gray-200 shadow-lg ring-0 p-0 py-1">
-            {SECTION_OPTIONS.map((s) => (
+            {MORE_SECTIONS.map((s) => (
               <DropdownMenuItem
                 key={s}
-                onSelect={() => setFilter(s === "All sections" ? "Trending" : s)}
-                className="rounded-none px-3 py-1.5 text-sm text-gray-700 focus:bg-gray-50 focus:text-gray-700"
+                onSelect={() => setFilter(s)}
+                className="rounded-none px-3 py-1.5 text-sm text-gray-700 focus:bg-gray-50 focus:text-gray-700 flex items-center justify-between"
               >
-                {s}
+                {s} {filter === s && <Check className="w-3.5 h-3.5 text-blue-600" />}
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
-        <button className="ml-auto w-7 h-7 flex items-center justify-center rounded-md text-gray-400 border border-gray-200 hover:bg-gray-50"><Settings className="w-3.5 h-3.5" /></button>
       </div>
 
-      <div className="mx-4 mb-1 p-3 rounded-lg border border-dashed border-gray-300 bg-gray-50">
-        <div className="text-xs uppercase tracking-wider text-gray-400 mb-1">Featured · Scraped news</div>
-        <div className="text-sm font-medium text-gray-900">Will China invade Taiwan in 2026?</div>
-        <div className="text-xs text-gray-500 mt-0.5">Reuters: Taiwan reports increased PLA activity near strait · 4m</div>
+      <div className="flex items-center gap-2 px-4 pb-3">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              className={`flex items-center gap-1 text-xs rounded-md px-2 py-1 border ${
+                sort !== "Trending" ? "border-blue-300 text-blue-700 bg-blue-50" : "border-gray-200 text-gray-600 hover:bg-gray-50"
+              }`}
+            >
+              Sort: {sort} <ChevronDown className="w-3 h-3" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-40 rounded-lg border border-gray-200 shadow-lg ring-0 p-0 py-1">
+            {SORT_OPTIONS.map((s) => (
+              <DropdownMenuItem
+                key={s}
+                onSelect={() => setSort(s)}
+                className="rounded-none px-3 py-1.5 text-sm text-gray-700 focus:bg-gray-50 focus:text-gray-700 flex items-center justify-between"
+              >
+                {s} {sort === s && <Check className="w-3.5 h-3.5 text-blue-600" />}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              className={`flex items-center gap-1 text-xs rounded-md px-2 py-1 border ${
+                status !== "All" ? "border-blue-300 text-blue-700 bg-blue-50" : "border-gray-200 text-gray-600 hover:bg-gray-50"
+              }`}
+            >
+              Status: {status} <ChevronDown className="w-3 h-3" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-40 rounded-lg border border-gray-200 shadow-lg ring-0 p-0 py-1">
+            {STATUS_OPTIONS.map((s) => (
+              <DropdownMenuItem
+                key={s}
+                onSelect={() => setStatus(s)}
+                className="rounded-none px-3 py-1.5 text-sm text-gray-700 focus:bg-gray-50 focus:text-gray-700 flex items-center justify-between"
+              >
+                {s} {status === s && <Check className="w-3.5 h-3.5 text-blue-600" />}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+        {filtersActive && (
+          <button onClick={resetFilters} className="ml-auto text-xs text-gray-400 hover:text-gray-700">Reset</button>
+        )}
       </div>
 
-      <ScrollArea className="flex-1 min-h-0 mt-1">
+      <ScrollArea className="flex-1 min-h-0">
         {visibleMarkets.map((m) => (
           <button key={m.id} className="w-full text-left px-4 py-3 border-t border-gray-100 hover:bg-gray-50">
             <div className="flex items-start justify-between gap-3">
@@ -93,7 +159,7 @@ export function MarketsColumn({ editing }: { editing: boolean }) {
             </div>
           </button>
         ))}
-        {visibleMarkets.length === 0 && <div className="px-4 py-6 text-sm text-gray-400">No markets in this section.</div>}
+        {visibleMarkets.length === 0 && <div className="px-4 py-6 text-sm text-gray-400">No markets match these filters.</div>}
       </ScrollArea>
     </section>
   );
