@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Check, ChevronDown, GripVertical, Plus, Star } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -23,10 +23,25 @@ interface MarketsColumnProps {
   selectedMarketId?: string;
 }
 
+type MarketsView = "advanced" | "cards";
+
+const VIEW_OPTIONS: { value: MarketsView; label: string }[] = [
+  { value: "advanced", label: "Advanced" },
+  { value: "cards", label: "Cards" },
+];
+
 export function MarketsColumn({ editing, onSelectMarket, selectedMarketId }: MarketsColumnProps) {
   const [filter, setFilter] = useState<MarketFilter>("Trending");
   const [sort, setSort] = useState<MarketSort>("Trending");
   const [status, setStatus] = useState<StatusFilter>("All");
+  const [view, setView] = useState<MarketsView>(() => {
+    const saved = localStorage.getItem("azal:markets-view");
+    return saved === "cards" ? "cards" : "advanced";
+  });
+
+  useEffect(() => {
+    localStorage.setItem("azal:markets-view", view);
+  }, [view]);
 
   const visibleMarkets = useMemo(() => {
     let list = MARKETS;
@@ -58,7 +73,24 @@ export function MarketsColumn({ editing, onSelectMarket, selectedMarketId }: Mar
             {visibleMarkets.length}
           </Badge>
         </div>
-        <button className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-700">scannable list <ChevronDown className="w-3 h-3" /></button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-700">
+              {view === "cards" ? "Cards" : "Advanced"} <ChevronDown className="w-3 h-3" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-40 rounded-lg border border-gray-200 shadow-lg ring-0 p-0 py-1">
+            {VIEW_OPTIONS.map((v) => (
+              <DropdownMenuItem
+                key={v.value}
+                onSelect={() => setView(v.value)}
+                className="rounded-none px-3 py-1.5 text-sm text-gray-700 focus:bg-gray-50 focus:text-gray-700 flex items-center justify-between"
+              >
+                {v.label} {view === v.value && <Check className="w-3.5 h-3.5 text-blue-600" />}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       <div className="flex items-center gap-1.5 px-4 pb-2">
@@ -150,27 +182,55 @@ export function MarketsColumn({ editing, onSelectMarket, selectedMarketId }: Mar
       </div>
 
       <ScrollArea className="flex-1 min-h-0">
-        {visibleMarkets.map((m) => (
-          <button
-            key={m.id}
-            onClick={() => onSelectMarket?.(m.id)}
-            className={`w-full text-left px-4 py-3 border-t border-gray-100 hover:bg-gray-50 ${
-              m.id === selectedMarketId ? "bg-blue-50 border-l-2 border-l-blue-600" : ""
-            }`}
-          >
+        {visibleMarkets.map((m) => {
+          const selected = m.id === selectedMarketId;
+          const head = (
             <div className="flex items-start justify-between gap-3">
               <span className="text-sm text-gray-900 font-medium">{m.question}</span>
               <span className="text-sm font-semibold text-gray-900 shrink-0">{m.probability}%</span>
             </div>
-            <div className="flex items-center justify-between mt-1.5">
+          );
+          const meta = (
+            <>
               <span className="text-xs text-gray-400">{m.volumeLabel} · {m.timeLabel}</span>
               <span className="flex items-center gap-1">
                 <span className="text-xs text-gray-500 border border-gray-200 rounded px-1.5 py-0.5">Y {m.yesPrice}¢</span>
                 <span className="text-xs text-gray-500 border border-gray-200 rounded px-1.5 py-0.5">N {m.noPrice}¢</span>
               </span>
-            </div>
-          </button>
-        ))}
+            </>
+          );
+          if (view === "cards") {
+            return (
+              <button
+                key={m.id}
+                onClick={() => onSelectMarket?.(m.id)}
+                className={`w-full text-left px-4 py-3.5 border-t border-gray-100 hover:bg-gray-50 ${
+                  selected ? "bg-blue-50 border-l-2 border-l-blue-600" : ""
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-md bg-gray-100 border border-gray-200 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    {head}
+                    <div className="flex items-center justify-between mt-2">{meta}</div>
+                  </div>
+                </div>
+              </button>
+            );
+          }
+          return (
+            <button
+              key={m.id}
+              onClick={() => onSelectMarket?.(m.id)}
+              className={`w-full text-left px-4 py-2 border-t border-gray-100 hover:bg-gray-50 ${
+                selected ? "bg-blue-50 border-l-2 border-l-blue-600" : ""
+              }`}
+            >
+              {head}
+              <div className="flex items-center justify-between mt-1">{meta}</div>
+            </button>
+          );
+        })}
         {visibleMarkets.length === 0 && <div className="px-4 py-6 text-sm text-gray-400">No markets match these filters.</div>}
       </ScrollArea>
     </section>
