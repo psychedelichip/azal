@@ -5,7 +5,17 @@ import { ChevronDown, Flame, Gift, Globe, LayoutGrid, Settings, Share2 } from "l
 import type { LucideIcon } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Sidebar, useSidebar } from "@/components/ui/sidebar";
+import { useWalletBook } from "@/lib/wallet-store";
+import type { WalletBook } from "@/lib/wallet-store";
 import { LIVE_MARKETS, TRENDING_TOPICS } from "@/lib/mock";
+
+// Compact active-scope label for the Portfolio item (wallet name or group name; "All" when unscoped).
+function compactScope(book: WalletBook): string {
+  const { active, wallets, groups } = book;
+  if (!active) return "All";
+  if (active.kind === "wallet") return wallets.find((w) => w.id === active.id)?.label ?? "";
+  return groups.find((g) => g.id === active.id)?.name ?? "";
+}
 
 interface SubItemProps {
   label: string;
@@ -38,9 +48,10 @@ interface MenuItemProps {
   label: string;
   active: boolean;
   onClick: () => void;
+  trailing?: ReactNode;
 }
 
-function MenuItem({ icon: Icon, label, active, onClick }: MenuItemProps) {
+function MenuItem({ icon: Icon, label, active, onClick, trailing }: MenuItemProps) {
   return (
     <button
       onClick={onClick}
@@ -48,7 +59,9 @@ function MenuItem({ icon: Icon, label, active, onClick }: MenuItemProps) {
         active ? "bg-gray-100 text-gray-900 font-medium" : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
       }`}
     >
-      <Icon className="w-4 h-4" /> {label}
+      <Icon className="w-4 h-4 shrink-0" />
+      <span className="truncate">{label}</span>
+      {trailing && <span className="ml-auto min-w-0 shrink-0">{trailing}</span>}
     </button>
   );
 }
@@ -91,6 +104,7 @@ export function AppSidebar() {
   const { pathname } = useLocation();
   const isDashboard = pathname === "/dashboard";
   const [activeItem, setActiveItem] = useState("China");
+  const scopeLabel = compactScope(useWalletBook());
 
   const selectCategory = (label: string) => {
     setActiveItem(label);
@@ -162,7 +176,19 @@ export function AppSidebar() {
             </CategoryGroup>
 
             <div className="px-2 mt-4 mb-1 text-xs font-medium uppercase tracking-wider text-gray-400">Menu</div>
-            <MenuItem icon={LayoutGrid} label="Portfolio" active={pathname === "/portfolio"} onClick={() => navigate("/portfolio")} />
+            <MenuItem
+              icon={LayoutGrid}
+              label="Portfolio"
+              active={pathname === "/portfolio"}
+              onClick={() => navigate("/portfolio")}
+              trailing={
+                scopeLabel && (
+                  <span className="text-[10px] text-gray-400 truncate max-w-[84px]" title={`Tracking ${scopeLabel}`}>
+                    {scopeLabel}
+                  </span>
+                )
+              }
+            />
             <MenuItem icon={Share2} label="Social" active={pathname === "/social"} onClick={() => navigate("/social")} />
             <MenuItem icon={Gift} label="Rewards" active={pathname === "/rewards"} onClick={() => navigate("/rewards")} />
             <button
