@@ -1,7 +1,8 @@
-import { ArrowRight, ChevronDown, GripVertical, LayoutGrid, X } from "lucide-react";
+import { ArrowRight, ChevronDown, ChevronRight, GripVertical, LayoutGrid, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { WidgetMini } from "@/components/WidgetMini";
+import { IntelTypeIcon } from "@/components/dashboard/intel-meta";
 import { CATALYSTS, INTEL_ITEMS, POSITIONS, WIDGETS } from "@/lib/mock";
 import type { WidgetKey } from "@/lib/mock";
 
@@ -9,6 +10,8 @@ interface RightRailProps {
   editing: boolean;
   slotWidget: WidgetKey | null;
   onRemoveWidget: () => void;
+  /** Opens the Intel drawer — an item id opens its detail, no id opens the full feed. */
+  onOpenIntel: (id?: string) => void;
 }
 
 function CountBadge({ count }: { count: number }) {
@@ -19,7 +22,7 @@ function CountBadge({ count }: { count: number }) {
   );
 }
 
-export function RightRail({ editing, slotWidget, onRemoveWidget }: RightRailProps) {
+export function RightRail({ editing, slotWidget, onRemoveWidget, onOpenIntel }: RightRailProps) {
   return (
     <aside className="flex flex-col border-l border-gray-200 bg-white shrink-0 min-h-0" style={{ width: 300 }}>
       <ScrollArea className="flex-1 min-h-0">
@@ -30,13 +33,14 @@ export function RightRail({ editing, slotWidget, onRemoveWidget }: RightRailProp
             <span className="text-sm font-semibold text-gray-900">Azal Intel</span>
             <CountBadge count={INTEL_ITEMS.length} />
           </div>
-          <span className="text-xs text-gray-400">scored · ranked</span>
+          <button onClick={() => onOpenIntel()} className="text-xs font-medium text-blue-600 hover:text-blue-700">View all</button>
         </div>
         {INTEL_ITEMS.map((it) => (
-          <button key={it.id} className="w-full text-left flex items-center gap-3 px-4 py-2.5 border-t border-gray-100 hover:bg-gray-50">
-            <span className="text-sm font-semibold text-gray-900 border-l-2 border-gray-300 pl-2 shrink-0" style={{ minWidth: 34 }}>{it.score}</span>
-            <span className="text-sm text-gray-700 flex-1">{it.text}</span>
-            <ArrowRight className="w-4 h-4 text-gray-300 shrink-0" />
+          <button key={it.id} onClick={() => onOpenIntel(it.id)} className="w-full text-left flex items-center gap-2.5 px-4 py-2.5 border-t border-gray-100 hover:bg-gray-50">
+            <span className="text-sm font-semibold text-gray-900 border-l-2 border-gray-300 pl-2 shrink-0" style={{ minWidth: 30 }}>{it.score}</span>
+            <IntelTypeIcon item={it} />
+            <span className="text-sm text-gray-700 flex-1 min-w-0 truncate">{it.headline}</span>
+            <ChevronRight className="w-4 h-4 text-gray-300 shrink-0" />
           </button>
         ))}
 

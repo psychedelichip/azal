@@ -1,5 +1,6 @@
 import { ArrowRight } from "lucide-react";
-import { CATALYSTS, CONTEXTUAL_NEWS, INTEL_ITEMS } from "@/lib/mock";
+import { CATALYSTS, CONTEXTUAL_NEWS, INTEL_ITEMS, intelMarketIds } from "@/lib/mock";
+import { IntelTypeIcon } from "@/components/dashboard/intel-meta";
 
 function SectionLabel({ label, fallback }: { label: string; fallback: boolean }) {
   return (
@@ -16,7 +17,7 @@ function SentimentDot({ s }: { s?: "up" | "down" | "neutral" }) {
 }
 
 export function WhyThisMarket({ marketId }: { marketId: string }) {
-  const intelScoped = INTEL_ITEMS.filter((i) => i.relatedMarketId === marketId);
+  const intelScoped = INTEL_ITEMS.filter((i) => intelMarketIds(i).includes(marketId));
   const catsScoped = CATALYSTS.filter((c) => c.relatedMarketId === marketId);
   const newsScoped = CONTEXTUAL_NEWS.filter((n) => n.marketId === marketId);
 
@@ -33,9 +34,10 @@ export function WhyThisMarket({ marketId }: { marketId: string }) {
 
       <SectionLabel label="Azal Intel" fallback={!intelScoped.length} />
       {intel.map((it) => (
-        <button key={it.id} className="w-full text-left flex items-center gap-3 px-4 py-2 border-t border-gray-100 hover:bg-gray-50">
+        <button key={it.id} className="w-full text-left flex items-center gap-2.5 px-4 py-2 border-t border-gray-100 hover:bg-gray-50">
           <span className="text-sm font-semibold text-gray-900 border-l-2 border-gray-300 pl-2 shrink-0" style={{ minWidth: 30 }}>{it.score}</span>
-          <span className="text-sm text-gray-700 flex-1">{it.text}</span>
+          <IntelTypeIcon item={it} />
+          <span className="text-sm text-gray-700 flex-1 min-w-0 truncate">{it.headline}</span>
           <ArrowRight className="w-4 h-4 text-gray-300 shrink-0" />
         </button>
       ))}

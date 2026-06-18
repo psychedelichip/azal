@@ -54,12 +54,68 @@ export interface FeaturedMarket {
   closesLabel?: string;
 }
 
-export interface IntelItem {
+export type IntelType = "recommendation" | "news" | "market_move" | "signal";
+export type IntelAction = "buy" | "sell" | "hedge";
+
+interface IntelBase {
   id: string;
+  type: IntelType;
+  /** 0–100 relevance; drives the ranked order. */
   score: number;
-  text: string;
-  /** Links intel to a FeaturedMarket.marketId for the deep-dive "Why this market" panel. */
-  relatedMarketId?: string;
+  /** One-line teaser shown in the right-rail row. */
+  headline: string;
+  timeAgo: string;
+}
+
+/** AI position recommendation: buy/sell a market, or hedge a held position. */
+export interface IntelRecommendation extends IntelBase {
+  type: "recommendation";
+  marketId: string;
+  market: string;
+  side: HoldingSide;
+  /** Set when the rec concerns a held position (drives the hedge action). */
+  positionId?: string;
+  rationale: string;
+  actions: IntelAction[];
+}
+
+/** Breaking news with the markets it moves attached. */
+export interface IntelNews extends IntelBase {
+  type: "news";
+  source: string;
+  body: string;
+  sentiment?: "up" | "down" | "neutral";
+  relatedMarkets: { id: string; name: string }[];
+  affectedPositions?: { id: string; name: string }[];
+}
+
+/** A notable price/volume move on a market. */
+export interface IntelMarketMove extends IntelBase {
+  type: "market_move";
+  marketId: string;
+  market: string;
+  delta: string;
+  direction: "up" | "down";
+  volumeLabel: string;
+  sparkline: number[];
+}
+
+/** Crowd-vs-model disagreement or a derived alert on a market. */
+export interface IntelSignal extends IntelBase {
+  type: "signal";
+  marketId: string;
+  market: string;
+  /** Crowd-implied probability vs Azal's model (both in ¢/%). */
+  crowd: number;
+  model: number;
+  alert: string;
+}
+
+export type IntelItem = IntelRecommendation | IntelNews | IntelMarketMove | IntelSignal;
+
+/** Market ids an intel item is attached to (news can touch several). */
+export function intelMarketIds(it: IntelItem): string[] {
+  return it.type === "news" ? it.relatedMarkets.map((m) => m.id) : [it.marketId];
 }
 
 export interface Catalyst {
@@ -179,9 +235,89 @@ export const FEATURED_MARKETS: FeaturedMarket[] = [
 ];
 
 export const INTEL_ITEMS: IntelItem[] = [
-  { id: "intel-btc-headline", score: 92, text: "BTC market reacted +2.4% to Reuters headline", relatedMarketId: "btc-150k" },
-  { id: "intel-eth-catalyst", score: 87, text: "Your ETH position near a resolution catalyst", relatedMarketId: "eth-4k" },
-  { id: "intel-fed-disagreement", score: 74, text: "High disagreement detected on Fed-cut market", relatedMarketId: "fed-cut-jul" },
+  {
+    id: "intel-btc-buy",
+    type: "recommendation",
+    score: 92,
+    timeAgo: "4m",
+    headline: "Buy YES on BTC $150k — flow leads price",
+    marketId: "btc-150k",
+    market: "Will BTC hit $150k by Jun 30?",
+    side: "YES",
+    positionId: "pos-btc-yes",
+    rationale:
+      "Spot BTC ETFs took $1.2B of weekly inflows and the Reuters headline pushed price +2.4% with no follow-through selling. The model reads YES as underpriced versus the flow.",
+    actions: ["buy", "hedge"],
+  },
+  {
+    id: "intel-taiwan-news",
+    type: "news",
+    score: 88,
+    timeAgo: "11m",
+    headline: "Reuters: Taiwan reports rising PLA activity near strait",
+    source: "Reuters",
+    sentiment: "down",
+    body:
+      "Taiwan's defense ministry flagged a sharp rise in PLA naval movements near the strait. On comparable headlines, political and risk-off rate markets have repriced within hours.",
+    relatedMarkets: [
+      { id: "trump-approval", name: "Trump approval > 45% end Q2?" },
+      { id: "fed-cut-jul", name: "Fed cuts rates in July?" },
+    ],
+    affectedPositions: [{ id: "pos-fed-yes", name: "Fed cut Jul · Yes" }],
+  },
+  {
+    id: "intel-trump-move",
+    type: "market_move",
+    score: 81,
+    timeAgo: "2m",
+    headline: "Trump approval > 45% climbed +3.1% intraday",
+    marketId: "trump-approval",
+    market: "Trump approval > 45% end Q2?",
+    delta: "+3.1%",
+    direction: "up",
+    volumeLabel: "$890k vol",
+    sparkline: [48, 50, 49, 51, 52, 51, 53, 54, 55],
+  },
+  {
+    id: "intel-fed-signal",
+    type: "signal",
+    score: 76,
+    timeAgo: "18m",
+    headline: "Crowd vs. model gap on the Fed-cut market",
+    marketId: "fed-cut-jul",
+    market: "Fed cuts rates in July?",
+    crowd: 38,
+    model: 52,
+    alert:
+      "The crowd prices YES at 38¢ but Azal's model implies 52¢ after the cooler CPI print — a 14-point gap that has tended to mean-revert toward the model.",
+  },
+  {
+    id: "intel-fed-hedge",
+    type: "recommendation",
+    score: 73,
+    timeAgo: "26m",
+    headline: "Hedge Fed cut Jul · Yes before the decision",
+    marketId: "fed-cut-jul",
+    market: "Fed cuts rates in July?",
+    side: "YES",
+    positionId: "pos-fed-yes",
+    rationale:
+      "Your Fed-cut Yes is up, but the decision is a binary catalyst. A partial hedge locks in part of the gain while keeping upside if the cut lands.",
+    actions: ["hedge", "sell"],
+  },
+  {
+    id: "intel-cpi-news",
+    type: "news",
+    score: 69,
+    timeAgo: "1h",
+    headline: "Bloomberg: Core CPI cools to 3.1%, below consensus",
+    source: "Bloomberg",
+    sentiment: "up",
+    body:
+      "Core CPI printed 3.1% versus 3.3% consensus, strengthening the case for a July cut. Rate-sensitive markets moved first.",
+    relatedMarkets: [{ id: "fed-cut-jul", name: "Fed cuts rates in July?" }],
+    affectedPositions: [{ id: "pos-fed-yes", name: "Fed cut Jul · Yes" }],
+  },
 ];
 
 export const CATALYSTS: Catalyst[] = [
