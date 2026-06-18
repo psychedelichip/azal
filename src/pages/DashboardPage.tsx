@@ -5,6 +5,7 @@ import { MarketDetail } from "@/components/dashboard/MarketDetail";
 import { TradeDrawer } from "@/components/dashboard/TradeDrawer";
 import { IntelDrawer } from "@/components/dashboard/IntelDrawer";
 import { RightRail } from "@/components/RightRail";
+import { PositionsDock } from "@/components/PositionsDock";
 import { useShellContext } from "@/lib/shell-context";
 import { FEATURED_MARKETS } from "@/lib/mock";
 
@@ -30,7 +31,7 @@ export function DashboardPage() {
   };
 
   return (
-    <div className="flex-1 flex min-w-0 min-h-0">
+    <div className="relative flex-1 flex min-w-0 min-h-0">
       <MarketsColumn editing={editing} onSelectMarket={selectByMarketId} selectedMarketId={selected.marketId} />
       <MarketDetail
         editing={editing}
@@ -43,6 +44,7 @@ export function DashboardPage() {
         onTrade={() => setTradeOpen(true)}
       />
       <RightRail editing={editing} slotWidget={slotWidget} onRemoveWidget={() => setSlotWidget(null)} onOpenIntel={openIntel} />
+      <PositionsDock />
       <TradeDrawer open={tradeOpen} market={selected} onClose={() => setTradeOpen(false)} />
       <IntelDrawer
         open={intelOpen}

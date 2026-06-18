@@ -1,4 +1,4 @@
-import { ArrowRight, ChevronDown, ChevronRight, GripVertical, LayoutGrid, X } from "lucide-react";
+import { ArrowRight, ChevronRight, GripVertical, LayoutGrid, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { WidgetMini } from "@/components/WidgetMini";
@@ -85,24 +85,6 @@ export function RightRail({ editing, slotWidget, onRemoveWidget, onOpenIntel }: 
             </span>
             <ArrowRight className="w-4 h-4 text-gray-300 shrink-0" />
           </button>
-        ))}
-
-        {/* Positions */}
-        <div className="px-4 pt-4 pb-2 border-t border-gray-100 mt-1 flex items-center gap-2">
-          {editing && <GripVertical className="w-4 h-4 text-gray-300" />}
-          <span className="text-sm font-semibold text-gray-900">Positions</span>
-        </div>
-        {POSITIONS.map((p) => (
-          <div key={p.id} className="px-4 py-2.5 border-t border-gray-100">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-900">{p.name}</span>
-              <span className={`text-sm font-semibold ${p.pnl >= 0 ? "text-green-600" : "text-red-500"}`}>{p.pnl >= 0 ? "+" : "−"}${Math.abs(p.pnl)}</span>
-            </div>
-            <div className="flex items-center justify-between mt-0.5">
-              <span className="text-xs text-gray-400">{p.detail}</span>
-              <button className="text-xs text-gray-400 flex items-center gap-0.5 hover:text-gray-700">exit <ChevronDown className="w-3 h-3" /></button>
-            </div>
-          </div>
         ))}
 
         {/* Free slot / added widget */}
