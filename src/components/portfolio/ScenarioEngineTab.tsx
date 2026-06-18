@@ -1,85 +1,107 @@
 import { useState } from "react";
-import { ArrowRight } from "lucide-react";
+import { CornerDownLeft, Sparkles } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Slider } from "@/components/ui/slider";
-import { SCENARIO_PORTFOLIO_BASE, SCENARIOS } from "@/lib/mock";
+import { Button } from "@/components/ui/button";
+import { TradeDrawer } from "@/components/dashboard/TradeDrawer";
+import { ScenarioPositionImpact } from "./scenario/ScenarioPositionImpact";
+import { RelatedMarkets } from "./scenario/RelatedMarkets";
+import { resolveScenario, SCENARIO_RESULTS } from "./scenario/scenario-data";
+import type { ResolvedScenario } from "./scenario/scenario-data";
+import type { FeaturedMarket } from "@/lib/mock";
 
-const money = (n: number) => "$" + Math.round(n).toLocaleString("en-US");
+const QUICK_STARTS = SCENARIO_RESULTS.map((s) => s.label);
 
 export function ScenarioEngineTab() {
-  const [selected, setSelected] = useState(0);
-  const [severity, setSeverity] = useState(60);
+  const [query, setQuery] = useState("");
+  const [resolved, setResolved] = useState<ResolvedScenario | null>(null);
+  const [tradeMarket, setTradeMarket] = useState<FeaturedMarket | null>(null);
 
-  const scenario = SCENARIOS[selected];
-  const scaled = scenario.legs.map((leg) => ({ ...leg, delta: Math.round((leg.delta * severity) / 100) }));
-  const net = scaled.reduce((acc, leg) => acc + leg.delta, 0);
-  const before = SCENARIO_PORTFOLIO_BASE;
-  const after = before + net;
+  const run = (text?: string) => {
+    const q = (text ?? query).trim();
+    if (!q) return;
+    setResolved(resolveScenario(q));
+  };
+
+  const pickQuickStart = (label: string) => {
+    setQuery(label);
+    run(label);
+  };
 
   return (
     <ScrollArea className="flex-1 min-h-0 bg-white">
-      <div className="px-6 py-5">
-        <h3 className="text-sm font-semibold text-gray-900 mb-3">Scenario Engine</h3>
-        <div className="flex flex-wrap gap-1.5 mb-4">
-          {SCENARIOS.map((s, i) => (
-            <button
-              key={s.id}
-              onClick={() => setSelected(i)}
-              className={`text-sm rounded-lg px-3 py-1.5 border ${
-                selected === i ? "border-gray-900 ring-1 ring-gray-900 text-gray-900" : "border-gray-200 text-gray-500 hover:bg-gray-50"
-              }`}
+      <div className="px-6 py-5 max-w-4xl">
+        <div className="mb-1">
+          <h3 className="text-sm font-semibold text-gray-900">Scenario Engine</h3>
+          <div className="text-xs text-gray-400 mt-0.5">Describe a what-if in plain language and see how your book responds.</div>
+        </div>
+
+        {/* ChatGPT-style scenario composer */}
+        <div className="mt-4 rounded-2xl border border-gray-200 bg-[#f8fafc] focus-within:border-gray-400 focus-within:ring-1 focus-within:ring-gray-300 transition-colors">
+          <textarea
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                run();
+              }
+            }}
+            rows={2}
+            placeholder="What happens if interest rates rise to 5%?"
+            className="w-full resize-none bg-transparent px-4 pt-3.5 pb-1 text-sm text-gray-900 placeholder:text-gray-400 outline-none"
+          />
+          <div className="flex items-center justify-between px-3 pb-3 pt-1">
+            <span className="flex items-center gap-1 text-xs text-gray-400">
+              <Sparkles className="w-3.5 h-3.5" /> Mocked — try a rates, Fed, or BTC scenario
+            </span>
+            <Button
+              onClick={() => run()}
+              disabled={!query.trim()}
+              className="h-auto gap-1.5 rounded-lg px-4 py-2 text-sm font-medium text-white bg-[#0b1220] hover:bg-[#0b1220] disabled:opacity-40"
             >
-              {s.name}
+              Run <CornerDownLeft className="w-3.5 h-3.5" />
+            </Button>
+          </div>
+        </div>
+
+        {/* Quick-start chips */}
+        <div className="mt-3 flex flex-wrap items-center gap-1.5">
+          <span className="text-xs text-gray-400 mr-0.5">Quick start</span>
+          {QUICK_STARTS.map((label) => (
+            <button
+              key={label}
+              onClick={() => pickQuickStart(label)}
+              className="text-xs rounded-full px-3 py-1.5 border border-gray-200 text-gray-600 hover:bg-gray-50"
+            >
+              {label}
             </button>
           ))}
         </div>
 
-        <div className="grid gap-5" style={{ gridTemplateColumns: "1.8fr 1fr" }}>
-          <div className="border border-gray-200 rounded-xl overflow-hidden h-fit">
-            <div className="grid grid-cols-12 px-4 py-2.5 bg-gray-50 text-xs uppercase tracking-wider text-gray-400">
-              <div className="col-span-9">Position</div>
-              <div className="col-span-3 text-right">Projected</div>
-            </div>
-            <div className="divide-y divide-gray-100">
-              {scaled.map((leg) => (
-                <div key={leg.position} className="grid grid-cols-12 px-4 py-3 items-center">
-                  <div className="col-span-9 text-sm text-gray-900">{leg.position}</div>
-                  <div className={`col-span-3 text-right text-sm font-medium ${leg.delta < 0 ? "text-red-600" : "text-green-600"}`}>
-                    {leg.delta < 0 ? "-" : "+"}{money(Math.abs(leg.delta))}
-                  </div>
+        {/* Results */}
+        {resolved && (
+          <div className="mt-6 space-y-6">
+            <div className="rounded-xl border border-gray-200 bg-white px-4 py-3">
+              <div className="text-xs uppercase tracking-wider text-gray-400 mb-1">
+                {resolved.matched ? "Scenario" : "Closest match"}
+              </div>
+              <div className="text-sm text-gray-900">{resolved.result.interpretation}</div>
+              {!resolved.matched && (
+                <div className="mt-1.5 text-xs text-gray-400">
+                  No exact match for your input — showing the closest example, “{resolved.result.label}”.
                 </div>
-              ))}
+              )}
             </div>
-          </div>
 
-          <div className="space-y-4">
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs uppercase tracking-wider text-gray-400">Severity</span>
-                <span className="text-sm font-medium text-gray-900">{severity}%</span>
-              </div>
-              <Slider value={[severity]} onValueChange={([v]) => setSeverity(v)} min={0} max={100} step={5} className="my-1" />
-            </div>
-            <div className="rounded-xl border border-gray-200 p-4 bg-[#f8fafc]">
-              <div className="text-xs uppercase tracking-wider text-gray-400 mb-2">Projected portfolio impact</div>
-              <div className="flex items-center gap-3 mb-2">
-                <div className="flex-1">
-                  <div className="text-xs text-gray-400">Now</div>
-                  <div className="text-base font-semibold text-gray-900">{money(before)}</div>
-                </div>
-                <ArrowRight className="w-4 h-4 text-gray-300" />
-                <div className="flex-1">
-                  <div className="text-xs text-gray-400">Projected</div>
-                  <div className={`text-base font-semibold ${net < 0 ? "text-red-600" : "text-green-600"}`}>{money(after)}</div>
-                </div>
-              </div>
-              <div className={`text-sm font-medium ${net < 0 ? "text-red-600" : "text-green-600"}`}>
-                Net {net < 0 ? "-" : "+"}{money(Math.abs(net))}
-              </div>
-            </div>
+            <ScenarioPositionImpact positions={resolved.result.positions} />
+            <RelatedMarkets markets={resolved.result.relatedMarkets} onTrade={setTradeMarket} />
           </div>
-        </div>
+        )}
       </div>
+
+      {tradeMarket && (
+        <TradeDrawer open={!!tradeMarket} market={tradeMarket} onClose={() => setTradeMarket(null)} />
+      )}
     </ScrollArea>
   );
 }

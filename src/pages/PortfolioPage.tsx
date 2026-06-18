@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ArrowDownToLine, ChevronRight, Copy, Link2 } from "lucide-react";
+import { ArrowDownToLine, ChevronRight, Copy, Link2, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { PositionBadge } from "@/components/PositionBadge";
@@ -10,6 +10,8 @@ import { CommandCenterTab } from "@/components/portfolio/CommandCenterTab";
 import { TranslatorTab } from "@/components/portfolio/TranslatorTab";
 import { ScenarioEngineTab } from "@/components/portfolio/ScenarioEngineTab";
 import { useShellContext } from "@/lib/shell-context";
+import { activeWallets, useWalletBook } from "@/lib/wallet-store";
+import type { WalletBook } from "@/lib/wallet-store";
 import {
   EXPOSURE_BREAKDOWNS,
   HOLDINGS,
@@ -24,6 +26,7 @@ import type {
   Holding,
   HoldingRisk,
   HoldingStatus,
+  PortfolioStat,
   StatTrend,
 } from "@/lib/mock";
 
@@ -53,6 +56,8 @@ function statusClass(status: HoldingStatus) {
 interface SourcedHolding extends Holding {
   source: string | null;
   former?: string;
+  /** Which connected wallet this position sits in — drives Portfolio's active-wallet scoping. */
+  walletId: string;
 }
 
 const HOLDING_SOURCE: Record<string, { source: string | null; former?: string }> = {
@@ -62,8 +67,19 @@ const HOLDING_SOURCE: Record<string, { source: string | null; former?: string }>
   "hold-brent": { source: null, former: "@deltaone" },
 };
 
+// Position → wallet, layered locally so /lib/mock stays untouched (same overlay pattern as
+// HOLDING_SOURCE). Cold storage holds no positions; unmapped ids fall back to the main wallet.
+const HOLDING_WALLET: Record<string, string> = {
+  "hold-fed-jul": "wallet-main",
+  "hold-tariff": "wallet-main",
+  "hold-ai-capex": "wallet-main",
+  "hold-brent": "wallet-hedge",
+  "hold-rate-path": "wallet-hedge",
+  "hold-cpi-soft": "wallet-hedge",
+};
+
 // Extra copied positions so a trader holds several — exercises the grouping + counts.
-const EXTRA_COPIED: SourcedHolding[] = [
+const EXTRA_COPIED: Array<Omit<SourcedHolding, "walletId">> = [
   { id: "hold-rate-path", side: "YES", name: "Rate path 2026", exposure: "$9,800", risk: "Medium", pnl: "+$1,120", up: true, status: "Active", source: "@apex_trades" },
   { id: "hold-cpi-soft", side: "NO", name: "CPI under 3%", exposure: "$7,400", risk: "Low", pnl: "+$540", up: true, status: "Active", source: "@apex_trades" },
 ];
@@ -71,33 +87,87 @@ const EXTRA_COPIED: SourcedHolding[] = [
 const SOURCED_HOLDINGS: SourcedHolding[] = [
   ...HOLDINGS.map((h) => ({ ...h, ...(HOLDING_SOURCE[h.id] ?? { source: null }) })),
   ...EXTRA_COPIED,
-];
+].map((h) => ({ ...h, walletId: HOLDING_WALLET[h.id] ?? "wallet-main" }));
+
+/* ---- active-wallet scoping ---- */
+
+// Tolerates "$28,400", "+$4,220", and unicode-minus "−$1,180".
+function parseUsd(s: string): number {
+  const negative = /[-−]/.test(s);
+  const n = Number(s.replace(/[^0-9.]/g, ""));
+  return negative ? -Math.abs(n) : n;
+}
+
+function fmtUsd(n: number): string {
+  return `$${Math.round(n).toLocaleString("en-US")}`;
+}
+
+function fmtPnl(n: number): string {
+  const rounded = Math.round(n);
+  return `${rounded < 0 ? "−" : "+"}$${Math.abs(rounded).toLocaleString("en-US")}`;
+}
+
+// Whole-portfolio value (incl. imported) — kept as the exposure-% denominator so the scoped
+// figure reads as a share of net worth, not of a single wallet (preserves the reconciliation).
+const PORTFOLIO_TOTAL = parseUsd(PORTFOLIO_STATS[0].value);
+
+// Position-level cards derived from the scoped holdings. Card 1 (total net worth incl. imported)
+// stays portfolio-wide; exposure / open positions / PNL reflect the active wallet(s) only.
+function scopedStats(holdings: SourcedHolding[]): PortfolioStat[] {
+  const exposure = holdings.reduce((sum, h) => sum + parseUsd(h.exposure), 0);
+  const pnl = holdings.reduce((sum, h) => sum + parseUsd(h.pnl), 0);
+  const nearResolution = holdings.filter((h) => h.status === "Near Resolution").length;
+  const pct = PORTFOLIO_TOTAL > 0 ? Math.round((exposure / PORTFOLIO_TOTAL) * 100) : 0;
+  const count = holdings.length;
+  return [
+    PORTFOLIO_STATS[0],
+    { label: "Market exposure", value: fmtUsd(exposure), delta: `${pct}% of portfolio`, trend: "neutral" },
+    { label: "Open positions", value: String(count), delta: `${nearResolution} near resolution`, trend: "neutral" },
+    {
+      label: "PNL",
+      value: fmtPnl(pnl),
+      delta: `across ${count} position${count === 1 ? "" : "s"}`,
+      trend: pnl >= 0 ? "up" : "down",
+      emphasize: pnl >= 0,
+    },
+  ];
+}
+
+// Badge text: a single wallet's name, "{group} · N wallets", or "All wallets" when unscoped.
+function trackingLabel(book: WalletBook): string {
+  const { active, wallets, groups } = book;
+  if (!active) return "All wallets";
+  if (active.kind === "wallet") return wallets.find((w) => w.id === active.id)?.label ?? "—";
+  const group = groups.find((g) => g.id === active.id);
+  const n = wallets.filter((w) => w.groupId === active.id).length;
+  return group ? `${group.name} · ${n} wallet${n === 1 ? "" : "s"}` : "—";
+}
 
 function HoldingRow({ h }: { h: SourcedHolding }) {
   return (
-    <div className="grid items-center px-4 py-3 border-b border-gray-100 hover:bg-gray-50" style={{ gridTemplateColumns: HOLDINGS_COLS }}>
+    <div className="grid items-center gap-x-4 px-3 border-b border-gray-100 hover:bg-gray-50" style={{ gridTemplateColumns: HOLDINGS_COLS, height: 32 }}>
       <span className="flex items-center gap-2 min-w-0">
-        <span className="rounded-lg flex items-center justify-center shrink-0" style={{ width: 30, height: 30, background: "#7c3aed" }}>
-          <span className="rounded-full bg-white" style={{ width: 8, height: 8 }} />
+        <span className="rounded-md flex items-center justify-center shrink-0" style={{ width: 20, height: 20, background: "#7c3aed" }}>
+          <span className="rounded-full bg-white" style={{ width: 6, height: 6 }} />
         </span>
-        <span className={`text-xs font-medium rounded px-1.5 py-0.5 border shrink-0 ${h.side === "YES" ? "text-green-700 bg-green-50 border-green-200" : "text-red-700 bg-red-50 border-red-200"}`}>{h.side}</span>
-        <span className="text-sm text-gray-900 truncate min-w-0">{h.name}</span>
+        <span className={`text-[11px] font-medium rounded px-1 py-0.5 border shrink-0 ${h.side === "YES" ? "text-green-700 bg-green-50 border-green-200" : "text-red-700 bg-red-50 border-red-200"}`}>{h.side}</span>
+        <span className="text-[13px] text-gray-900 truncate min-w-0">{h.name}</span>
         <PositionBadge source={h.source} former={h.former} />
       </span>
-      <span className="text-sm text-gray-900">{h.exposure}</span>
-      <span className={`text-sm ${riskClass(h.risk)}`}>{h.risk}</span>
-      <span className={`text-sm font-medium ${h.up ? "text-green-600" : "text-red-500"}`}>{h.pnl}</span>
-      <span><span className={`text-xs border rounded-full px-2 py-0.5 ${statusClass(h.status)}`}>{h.status}</span></span>
+      <span className="text-[13px] text-gray-900 text-right tabular-nums">{h.exposure}</span>
+      <span className={`text-[13px] ${riskClass(h.risk)}`}>{h.risk}</span>
+      <span className={`text-[13px] font-medium text-right tabular-nums ${h.up ? "text-green-600" : "text-red-500"}`}>{h.pnl}</span>
+      <span><span className={`text-[11px] border rounded-full px-2 py-0.5 ${statusClass(h.status)}`}>{h.status}</span></span>
     </div>
   );
 }
 
-function HoldingsTable() {
-  const selfHoldings = useMemo(() => SOURCED_HOLDINGS.filter((h) => !h.source), []);
+function HoldingsTable({ holdings }: { holdings: SourcedHolding[] }) {
+  const selfHoldings = useMemo(() => holdings.filter((h) => !h.source), [holdings]);
   const groups = useMemo(() => {
-    const handles = [...new Set(SOURCED_HOLDINGS.filter((h) => h.source).map((h) => h.source as string))];
-    return handles.map((handle) => ({ handle, rows: SOURCED_HOLDINGS.filter((h) => h.source === handle) }));
-  }, []);
+    const handles = [...new Set(holdings.filter((h) => h.source).map((h) => h.source as string))];
+    return handles.map((handle) => ({ handle, rows: holdings.filter((h) => h.source === handle) }));
+  }, [holdings]);
 
   // filter: "all" | "self" | "copied" | a trader handle ("@…"). collapsed keyed by handle.
   const [filter, setFilter] = useState("all");
@@ -118,7 +188,7 @@ function HoldingsTable() {
 
   return (
     <>
-      <div className="flex items-center gap-1.5 mb-3 overflow-x-auto pb-0.5">
+      <div className="flex items-center gap-1.5 mb-2 overflow-x-auto pb-0.5">
         {chips.map((c) => (
           <button
             key={c.value}
@@ -132,15 +202,15 @@ function HoldingsTable() {
           </button>
         ))}
       </div>
-      <div className="border border-gray-200 rounded-xl overflow-hidden">
+      <div className="border border-gray-200 rounded-lg overflow-hidden">
         <div
-          className="grid items-center px-4 py-2.5 bg-gray-50 border-b border-gray-200 text-xs uppercase tracking-wider text-gray-400"
+          className="grid items-center gap-x-4 px-3 py-2 bg-gray-50 border-b border-gray-200 text-[11px] uppercase tracking-wider text-gray-400"
           style={{ gridTemplateColumns: HOLDINGS_COLS }}
         >
           <span>Position</span>
-          <span>Exposure</span>
+          <span className="text-right">Exposure</span>
           <span>Risk</span>
-          <span>PNL</span>
+          <span className="text-right">PNL</span>
           <span>Status</span>
         </div>
         {showSelf && selfHoldings.map((h) => <HoldingRow key={h.id} h={h} />)}
@@ -151,7 +221,7 @@ function HoldingsTable() {
               <button
                 onClick={() => toggle(g.handle)}
                 aria-expanded={!isCollapsed}
-                className="w-full flex items-center gap-1.5 px-4 py-2 bg-gray-50 border-b border-gray-100 text-left hover:bg-gray-100/70"
+                className="w-full flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 border-b border-gray-100 text-left hover:bg-gray-100/70"
               >
                 <ChevronRight className={`w-3.5 h-3.5 text-gray-400 transition-transform ${isCollapsed ? "" : "rotate-90"}`} />
                 <Copy className="w-3.5 h-3.5 text-blue-500" />
@@ -168,86 +238,107 @@ function HoldingsTable() {
   );
 }
 
-function SegBar({ segments }: { segments: ExposureSegment[] }) {
+function SegBar({
+  segments,
+  layout = "stacked",
+  barHeight = 8,
+}: {
+  segments: ExposureSegment[];
+  layout?: "stacked" | "inline";
+  barHeight?: number;
+}) {
   return (
     <div>
-      <div className="flex w-full rounded-full overflow-hidden" style={{ height: 8 }}>
+      <div className="flex w-full rounded-full overflow-hidden" style={{ height: barHeight }}>
         {segments.map((s) => (
           <div key={s.label} style={{ width: `${s.pct}%`, background: s.color }} />
         ))}
       </div>
-      <div className="mt-3 space-y-1.5">
-        {segments.map((s) => (
-          <div key={s.label} className="flex items-center justify-between text-xs">
-            <span className="flex items-center gap-2">
-              <span className="rounded-full" style={{ width: 8, height: 8, background: s.color }} />
+      {layout === "inline" ? (
+        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
+          {segments.map((s) => (
+            <span key={s.label} className="flex items-center gap-1.5 text-[11px]">
+              <span className="rounded-full shrink-0" style={{ width: 7, height: 7, background: s.color }} />
               <span className="text-gray-600">{s.label}</span>
+              <span className="text-gray-900 font-medium tabular-nums">{s.pct}%</span>
             </span>
-            <span className="text-gray-900 font-medium">{s.pct}%</span>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      ) : (
+        <div className="mt-2">
+          {segments.map((s) => (
+            <div key={s.label} className="flex items-center justify-between text-[11px]" style={{ height: 22 }}>
+              <span className="flex items-center gap-1.5 min-w-0">
+                <span className="rounded-full shrink-0" style={{ width: 7, height: 7, background: s.color }} />
+                <span className="text-gray-600 truncate">{s.label}</span>
+              </span>
+              <span className="text-gray-900 font-medium tabular-nums">{s.pct}%</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
-function PortfolioOverview({ onManageImported }: { onManageImported: () => void }) {
+function PortfolioOverview({ onManageImported, scopedIds }: { onManageImported: () => void; scopedIds: Set<string> }) {
+  const scopedHoldings = useMemo(() => SOURCED_HOLDINGS.filter((h) => scopedIds.has(h.walletId)), [scopedIds]);
+  const stats = useMemo(() => scopedStats(scopedHoldings), [scopedHoldings]);
   return (
     <ScrollArea className="flex-1 min-h-0 bg-white">
-      <div className="px-6 py-5">
-        <h3 className="text-sm font-semibold text-gray-900 mb-3">Portfolio Overview</h3>
-        <div className="grid grid-cols-4 gap-4 mb-7">
-          {PORTFOLIO_STATS.map((s) => (
-            <div key={s.label} className="border border-gray-200 rounded-xl p-4">
-              <div className="text-xs uppercase tracking-wider text-gray-400">{s.label}</div>
-              <div className={`text-2xl font-semibold mt-1 ${s.emphasize ? "text-green-600" : "text-gray-900"}`}>{s.value}</div>
-              <div className={`text-xs mt-1 ${statTrendClass(s.trend)}`}>{s.delta}</div>
+      <div className="px-6 py-4">
+        {/* KPI stat strip — one dense row, divided cells */}
+        <div className="grid grid-cols-4 border border-gray-200 rounded-lg divide-x divide-gray-200 mb-4">
+          {stats.map((s) => (
+            <div key={s.label} className="px-3 py-2">
+              <div className="text-[11px] uppercase tracking-wider text-gray-400">{s.label}</div>
+              <div className={`text-[19px] leading-tight font-semibold mt-0.5 tabular-nums ${s.emphasize ? "text-green-600" : "text-gray-900"}`}>{s.value}</div>
+              <div className={`text-[11px] mt-0.5 ${statTrendClass(s.trend)}`}>{s.delta}</div>
             </div>
           ))}
         </div>
 
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-semibold text-gray-900">Net worth by source</h3>
-          <span className="text-xs text-gray-400">Prediction positions and imported holdings, one number</span>
+        {/* Net worth by source — imported composition folded in (both are net-worth breakdowns) */}
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-[13px] font-semibold text-gray-900">Net worth by source</h3>
+          <span className="text-[11px] text-gray-400">Prediction positions and imported holdings, one number</span>
         </div>
-        <div className="border border-gray-200 rounded-xl p-4 mb-7">
-          <SegBar segments={NETWORTH_BY_SOURCE} />
+        <div className="border border-gray-200 rounded-lg p-3 mb-4">
+          <SegBar segments={NETWORTH_BY_SOURCE} layout="inline" barHeight={8} />
+          <div className="mt-3 pt-3 border-t border-gray-100">
+            <div className="flex items-center justify-between gap-3 mb-2">
+              <span className="text-[11px] uppercase tracking-wider text-gray-400">
+                Imported assets ·{" "}
+                <span className="text-gray-900 font-semibold normal-case tracking-normal tabular-nums">{IMPORTED_TOTAL_VALUE}</span>
+              </span>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <Button variant="outline" onClick={onManageImported} className="h-6 gap-1 text-[11px] font-normal border-gray-200 rounded-md px-2 text-gray-700 hover:bg-gray-50">
+                  <ArrowDownToLine className="w-3.5 h-3.5 text-gray-400" /> Import
+                </Button>
+                <Button variant="outline" onClick={onManageImported} className="h-6 gap-1 text-[11px] font-normal border-gray-200 rounded-md px-2 text-gray-700 hover:bg-gray-50">
+                  <Link2 className="w-3.5 h-3.5 text-gray-400" /> Connect
+                </Button>
+                <button onClick={onManageImported} className="flex items-center gap-0.5 text-[11px] font-medium text-gray-600 hover:text-gray-900">
+                  Manage <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+            <SegBar segments={IMPORTED_SOURCE_SPLIT} layout="inline" barHeight={6} />
+          </div>
         </div>
 
-        <h3 className="text-sm font-semibold text-gray-900 mb-3">Exposure Breakdown</h3>
-        <div className="grid grid-cols-4 gap-4 mb-7">
+        <h3 className="text-[13px] font-semibold text-gray-900 mb-2">Exposure Breakdown</h3>
+        <div className="grid grid-cols-4 gap-3 mb-4">
           {EXPOSURE_BREAKDOWNS.map((b) => (
-            <div key={b.title} className="border border-gray-200 rounded-xl p-4">
-              <div className="text-xs uppercase tracking-wider text-gray-400 mb-3">{b.title}</div>
-              <SegBar segments={b.segments} />
+            <div key={b.title} className="border border-gray-200 rounded-lg p-3">
+              <div className="text-[11px] uppercase tracking-wider text-gray-400 mb-2">{b.title}</div>
+              <SegBar segments={b.segments} barHeight={6} />
             </div>
           ))}
         </div>
 
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-semibold text-gray-900">Imported assets</h3>
-          <button onClick={onManageImported} className="flex items-center gap-1 text-xs font-medium text-gray-600 hover:text-gray-900">
-            Manage <ChevronRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
-        <div className="border border-gray-200 rounded-xl p-4 mb-7">
-          <div className="flex items-center justify-between mb-3">
-            <div className="text-xs uppercase tracking-wider text-gray-400">Total imported value</div>
-            <div className="text-sm font-semibold text-gray-900">{IMPORTED_TOTAL_VALUE}</div>
-          </div>
-          <SegBar segments={IMPORTED_SOURCE_SPLIT} />
-          <div className="flex items-center gap-2 mt-4 pt-4 border-t border-gray-100">
-            <Button variant="outline" onClick={onManageImported} className="h-auto gap-1.5 text-sm font-normal border-gray-200 rounded-lg px-3 py-1.5 text-gray-700 hover:bg-gray-50">
-              <ArrowDownToLine className="w-4 h-4 text-gray-400" /> Import from wallet
-            </Button>
-            <Button variant="outline" onClick={onManageImported} className="h-auto gap-1.5 text-sm font-normal border-gray-200 rounded-lg px-3 py-1.5 text-gray-700 hover:bg-gray-50">
-              <Link2 className="w-4 h-4 text-gray-400" /> Connect brokerage
-            </Button>
-          </div>
-        </div>
-
-        <h3 className="text-sm font-semibold text-gray-900 mb-3">Holdings Table</h3>
-        <HoldingsTable />
+        <h3 className="text-[13px] font-semibold text-gray-900 mb-2">Holdings Table</h3>
+        <HoldingsTable holdings={scopedHoldings} />
       </div>
     </ScrollArea>
   );
@@ -255,6 +346,13 @@ function PortfolioOverview({ onManageImported }: { onManageImported: () => void 
 
 export function PortfolioPage() {
   const { portfolioTab, setPortfolioTab, hedge, hedged, openHedge } = useShellContext();
+  const book = useWalletBook();
+  // active null ⇒ portfolio-wide (all wallets); otherwise the active wallet or group's wallets.
+  const scopedIds = useMemo(
+    () => new Set((book.active ? activeWallets(book) : book.wallets).map((w) => w.id)),
+    [book],
+  );
+  const tracking = trackingLabel(book);
 
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
@@ -270,9 +368,18 @@ export function PortfolioPage() {
             {p.key}
           </button>
         ))}
+        <button
+          onClick={() => setPortfolioTab("Wallets")}
+          title="Portfolio is scoped to your active wallet — manage in Wallets"
+          className="ml-auto shrink-0 flex items-center gap-1.5 rounded-full border border-gray-200 pl-2 pr-2.5 py-1 text-xs text-gray-600 hover:bg-gray-50 hover:border-gray-300"
+        >
+          <Wallet className="w-3.5 h-3.5 text-gray-400" />
+          <span className="text-gray-400">Tracking:</span>
+          <span className="font-medium text-gray-900 truncate max-w-[160px]">{tracking}</span>
+        </button>
       </div>
       {portfolioTab === "Overview" ? (
-        <PortfolioOverview onManageImported={() => setPortfolioTab("Imported Assets")} />
+        <PortfolioOverview onManageImported={() => setPortfolioTab("Imported Assets")} scopedIds={scopedIds} />
       ) : portfolioTab === "Command Center" ? (
         <CommandCenterTab />
       ) : portfolioTab === "Wallets" ? (
